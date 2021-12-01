@@ -1,12 +1,15 @@
-#![no_main]
 #![no_std]
 
 use core::panic::PanicInfo;
 
 #[no_mangle]
 pub unsafe extern "C" fn Reset() -> ! {
-    // trigger ci!!
-    loop {}
+    extern "Rust" {
+        fn main() -> !;
+    }
+    
+    // DOC COMMING SOON
+    main()
 }
 
 #[link_section = ".vector_table.reset_vector"]
