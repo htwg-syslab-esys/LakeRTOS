@@ -1,13 +1,13 @@
 #![no_std]
 #![no_main]
 
-use dp::bus::{Serial, AHB1, GPIO, PERIPHERALS, RCC};
-use led::LED;
-
 extern crate lake_rtos_rt;
 
 mod dp;
 mod led;
+
+use dp::bus::{Serial, AHB1, GPIO, PERIPHERALS, RCC};
+use led::LED;
 
 #[no_mangle]
 fn main() -> ! {

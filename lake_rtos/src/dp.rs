@@ -4,8 +4,6 @@ pub mod bus {
         ptr::{read_volatile, write_volatile},
     };
 
-    const RCC_AHBENR: u32 = 0x4002_1000 | 0x14;
-
     pub static mut PERIPHERALS: Peripherals = Peripherals {
         serial: Some(Serial),
     };
@@ -21,6 +19,8 @@ pub mod bus {
         }
     }
 
+    const RCC_AHBENR: u32 = 0x4002_1000 | 0x14;
+    const GPIOE_BASE: u32 = 0x4800_1000;
     pub struct Serial;
 
     impl Serial {
@@ -64,8 +64,6 @@ pub mod bus {
             self
         }
     }
-
-    const GPIOE_BASE: u32 = 0x4800_1000;
 
     pub struct AHB2 {
         gpioe: &'static mut GPIO,
