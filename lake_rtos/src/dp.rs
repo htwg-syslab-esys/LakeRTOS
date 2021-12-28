@@ -53,8 +53,9 @@ pub mod bus {
     }
 
     impl RCC {
+        // IO PORT E ENABLE
+        // p.166 "io port e enable"
         pub fn iopeen(&mut self) -> &mut RCC {
-            // IOPEEN p.166 "io port e enable"
             unsafe {
                 write_volatile(
                     &mut self.ahbenr as *mut u32,

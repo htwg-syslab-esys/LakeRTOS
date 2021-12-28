@@ -5,7 +5,11 @@
         "thumbv7m-none-eabi"
     ],
     "cSpell.words": [
+        "gpioe",
         "ICSR",
+        "iopeen",
+        "kmain",
+        "repr",
         "sched",
         "semihosting"
     ]

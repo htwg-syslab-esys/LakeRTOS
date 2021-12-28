@@ -23,6 +23,8 @@ into two symbol names because of their return type. See lib.rs
 for more info. */
 EXTERN(RESET_VECTOR);
 
+EXTERN(EXCEPTIONS);
+
 /* Description of what the memory contains and how it will be located . */
 SECTIONS
 {
@@ -35,6 +37,9 @@ SECTIONS
     
     /* Entry 1: Reset Function. Gets called after power up device. */
     KEEP(*(.vector_table.reset_vector));
+
+    /* The next 14 entries are exception vectors */
+    KEEP(*(.vector_table.exceptions));
   } > FLASH
   
   /* .text is where executable code goes. */
@@ -68,6 +73,15 @@ SECTIONS
   } > SRAM
 
   _sidata = LOADADDR(.data);
+
+  PROVIDE(NMI = DefaultExceptionHandler);
+  PROVIDE(HardFault = DefaultExceptionHandler);
+  PROVIDE(MemManage = DefaultExceptionHandler);
+  PROVIDE(BusFault = DefaultExceptionHandler);
+  PROVIDE(UsageFault = DefaultExceptionHandler);
+  PROVIDE(SVCall = DefaultExceptionHandler);
+  PROVIDE(PendSV = DefaultExceptionHandler);
+  PROVIDE(SysTick = DefaultExceptionHandler);
 
   /DISCARD/ :
   {

@@ -3,14 +3,17 @@
 
 extern crate lake_rtos_rt;
 
+mod cp;
 mod dp;
 mod led;
 
-use dp::bus::{Serial, AHB1, GPIO, PERIPHERALS, RCC};
+use dp::bus::{PERIPHERALS, Serial, AHB1, GPIO, RCC};
 use led::LED;
 
+static mut LED: Option<led::LED> = None;
+
 #[no_mangle]
-fn main() -> ! {
+fn kmain() -> ! {
     let serial: Serial = unsafe { PERIPHERALS.take_serial() };
 
     let mut ahb1: AHB1 = serial.ahb1();
@@ -21,5 +24,18 @@ fn main() -> ! {
 
     leds.on(13);
 
+    let st = cp::stk::SystemTimer::take();
+    st.set_reload(0x3FFFF).enable();
+
+    unsafe { LED = Some(leds) };
+
     loop {}
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn SysTick() {
+    match &mut LED {
+        Some(leds) => leds.toggle(13),
+        None => {}
+    }
 }

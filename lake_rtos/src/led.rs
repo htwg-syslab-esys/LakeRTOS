@@ -30,17 +30,12 @@ impl LED {
         }
     }
 
-    pub fn _toggle(&mut self, led: u8) {
+    pub fn toggle(&mut self, led: u8) {
         if (led <= 15) & (led >= 8) {
             let odr = unsafe { read_volatile(&mut self.gpioe.odr) };
-            if odr & (1 << led) != 0 {
-                unsafe {
-                    write_volatile(&mut self.gpioe.odr as *mut u32, odr ^ 0b1 << led);
-                }
-            } else {
-                unsafe {
-                    write_volatile(&mut self.gpioe.odr as *mut u32, odr | 0b1 << led);
-                }
+            let on_bit = odr & (1 << led);
+            unsafe {
+                write_volatile(&mut self.gpioe.odr as *mut u32, odr ^ (on_bit | 0b1) << led);
             }
         }
     }
