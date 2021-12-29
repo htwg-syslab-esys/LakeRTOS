@@ -5,10 +5,12 @@
         "thumbv7m-none-eabi"
     ],
     "cSpell.words": [
+        "GPIO",
         "gpioe",
         "ICSR",
         "iopeen",
         "kmain",
+        "LEDS",
         "repr",
         "sched",
         "semihosting"
