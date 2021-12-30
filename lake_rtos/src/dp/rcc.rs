@@ -1,7 +1,8 @@
 //! # Reset and clock controller
+//! 
+//! Peripheral is located at [super::bus::AHB1]
 
 use core::ptr::{read_volatile, write_volatile};
-
 /// Reset and clock controller
 ///
 /// [Reference Manual](https://www.st.com/resource/en/reference_manual/dm00043574-stm32f303xb-c-d-e-stm32f303x6-8-stm32f328x8-stm32f358xc-stm32f398xe-advanced-arm-based-mcus-stmicroelectronics.pdf)
