@@ -1,5 +1,5 @@
 //! # LakeRTOS
-//! 
+//!
 #![no_std]
 #![no_main]
 
@@ -47,7 +47,7 @@ fn kmain() -> ! {
 }
 
 /// # SysTick exception
-/// 
+///
 /// This function will be called when the SysTick exception is triggered.
 #[no_mangle]
 pub unsafe extern "C" fn SysTick() {

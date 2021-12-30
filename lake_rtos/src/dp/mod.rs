@@ -10,18 +10,20 @@ use core::mem::replace;
 const GPIOE_BASE: u32 = 0x4800_1000;
 const RCC_AHBENR: u32 = 0x4002_1000 | 0x14;
 
-/// This is the singleon Pattern static mut. Static muts are by default unsafe.
+/// This static mut is used for a singleton pattern. Static muts are unsafe by default.
+/// It is the programmers responsibility to make sure the logic behind it is safe.
 pub static mut DEVICE_PERIPHERALS: DevicePeripherals = DevicePeripherals {
-    serial: Some(BusInterface),
+    bus_interface: Some(BusInterface),
 };
 
+/// Holds the bus interface that connects to other peripherals
 pub struct DevicePeripherals {
-    serial: Option<BusInterface>,
+    bus_interface: Option<BusInterface>,
 }
 
 impl DevicePeripherals {
     pub fn take() -> BusInterface {
-        let p = replace(unsafe { &mut DEVICE_PERIPHERALS.serial }, None);
+        let p = replace(unsafe { &mut DEVICE_PERIPHERALS.bus_interface }, None);
         p.unwrap()
     }
 }

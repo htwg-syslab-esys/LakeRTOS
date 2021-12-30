@@ -1,8 +1,8 @@
 //! # LEDs
-//! 
-//! Convenient wrapper for the LEDs. Supported by the discovery board. 
-use core::ptr::{read_volatile, write_volatile};
+//!
+//! Convenient wrapper for the LEDs. Supported by the discovery board.
 use crate::dp::gpio::GPIO;
+use core::ptr::{read_volatile, write_volatile};
 
 #[allow(dead_code)]
 #[derive(Clone, Copy)]
@@ -18,9 +18,9 @@ pub enum CardinalPoints {
     West,
 }
 
-/// Need [GPIO] port E.
+/// Needs [GPIO] port E.
 ///
-/// There are eight LEDs in an cardinal points layout. They can be accessed with enum type [CardinalPoints].
+/// Consists of eight LEDs in an cardinal points layout. They can be accessed with enum type [CardinalPoints].
 pub struct LEDs {
     gpioe: &'static mut GPIO,
     initialized: [bool; 8],

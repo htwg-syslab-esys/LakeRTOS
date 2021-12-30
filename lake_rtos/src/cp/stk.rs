@@ -1,10 +1,11 @@
 //! # SysTick timer (STK)
-//! 
-//! [Programming Manual](https://www.st.com/content/ccc/resource/technical/document/programming_manual/6c/3a/cb/e7/e4/ea/44/9b/DM00046982.pdf/files/DM00046982.pdf/jcr:content/translations/en.DM00046982.pdf) 
+//!
+//! [Programming Manual](https://www.st.com/content/ccc/resource/technical/document/programming_manual/6c/3a/cb/e7/e4/ea/44/9b/DM00046982.pdf/files/DM00046982.pdf/jcr:content/translations/en.DM00046982.pdf)
 //! Section 4.5 - p.246
 use super::SYSTICK_TIMER;
 use core::ptr::{read_volatile, write_volatile};
 
+/// System Timers registers
 #[repr(C)]
 struct Systick {
     /// Control and status register (RW)
@@ -18,7 +19,7 @@ struct Systick {
 }
 
 /// System Timer
-/// 
+///
 /// Programming Manual Section 4.5
 ///
 /// *Manual hints the correct sequence*
