@@ -1,4 +1,6 @@
 //! # General purpose input/output (GPIO)
+//! 
+//! Peripheral is located at [AHB2][crate::dp::bus::AHB2]
 
 /// General purpose input/output
 ///
