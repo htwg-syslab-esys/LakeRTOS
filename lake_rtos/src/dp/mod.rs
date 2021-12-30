@@ -8,7 +8,7 @@ use self::bus::BusInterface;
 use core::mem::replace;
 
 const GPIOE_BASE: u32 = 0x4800_1000;
-const RCC_AHBENR: u32 = 0x4002_1000 | 0x14;
+const RCC_AHBENR: u32 = 0x4002_1000;
 
 /// This static mut is used for a singleton pattern. Static muts are unsafe by default.
 /// It is the programmers responsibility to make sure the logic behind it is safe.
