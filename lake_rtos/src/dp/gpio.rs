@@ -3,7 +3,7 @@
 /// General purpose input/output
 ///
 /// [Reference Manual](https://www.st.com/resource/en/reference_manual/dm00043574-stm32f303xb-c-d-e-stm32f303x6-8-stm32f328x8-stm32f358xc-stm32f398xe-advanced-arm-based-mcus-stmicroelectronics.pdf)
-/// GPIO register map - Section 11.4.12
+/// GPIO registers - Section 11.4
 #[repr(C)]
 pub struct GPIO {
     pub moder: u32,

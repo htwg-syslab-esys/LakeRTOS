@@ -1,6 +1,30 @@
 //! # LEDs
 //!
 //! Convenient wrapper for the LEDs. Supported by the discovery board.
+//!
+//! GPIO pin must be correctly configured for the LED to work
+//! 
+//! *GPIO port mode register*
+//! - 00: Input mode (reset state)
+//! - **01: General purpose output mode**
+//! - 10: Alternate function mode
+//! - 11: Analog mode
+//! 
+//! `General purpose output mode` is required.
+//! 
+//! *GPIO port output type register*
+//! - **0: Output push-pull (reset state)**
+//! - 1: Output open-drain
+//! 
+//! If the pins have not been altered after reset we would not need
+//! to set the register. But it could have been changed, therefore we
+//! set it to `output push-pull` to be safe.
+//! 
+//! Following register is responsible for actually turning on and off the LED.
+//! 
+//! *GPIO port output data register*
+//! - 0: LED is off
+//! - 1: LED is on
 use crate::dp::gpio::GPIO;
 use core::ptr::{read_volatile, write_volatile};
 
@@ -40,11 +64,11 @@ impl LEDs {
             unsafe {
                 write_volatile(
                     &mut self.gpioe.moder as *mut u32,
-                    read_volatile(&mut self.gpioe.moder) | (0b01 as u32) << (led as usize * 2),
+                    read_volatile(&mut self.gpioe.moder) | 0b01 << (led as usize * 2),
                 );
                 write_volatile(
                     &mut self.gpioe.otyper as *mut u32,
-                    read_volatile(&mut self.gpioe.otyper) & !(1 as u32) << led as usize,
+                    read_volatile(&mut self.gpioe.otyper) & 0b1 << led as usize,
                 );
             }
             self.initialized[led as usize - 8] = true;
