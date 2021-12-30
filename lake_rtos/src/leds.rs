@@ -2,9 +2,11 @@
 //!
 //! Convenient wrapper for the LEDs. Supported by the discovery board.
 //!
+//! ## Configuration
+//! 
 //! GPIO pin must be correctly configured for the LED to work
 //! 
-//! *GPIO port mode register*
+//! ### *GPIO port mode register*
 //! - 00: Input mode (reset state)
 //! - **01: General purpose output mode**
 //! - 10: Alternate function mode
@@ -12,7 +14,7 @@
 //! 
 //! `General purpose output mode` is required.
 //! 
-//! *GPIO port output type register*
+//! ### *GPIO port output type register*
 //! - **0: Output push-pull (reset state)**
 //! - 1: Output open-drain
 //! 
@@ -20,11 +22,16 @@
 //! to set the register. But it could have been changed, therefore we
 //! set it to `output push-pull` to be safe.
 //! 
-//! Following register is responsible for actually turning on and off the LED.
-//! 
-//! *GPIO port output data register*
+//! ### *GPIO port output data register*
 //! - 0: LED is off
 //! - 1: LED is on
+//! 
+//! Reset value is 0
+//! 
+//! ## More Information
+//! 
+//! [Reference Manual](https://www.st.com/resource/en/reference_manual/dm00043574-stm32f303xb-c-d-e-stm32f303x6-8-stm32f328x8-stm32f358xc-stm32f398xe-advanced-arm-based-mcus-stmicroelectronics.pdf)
+//! GPIO registers - Section 11.4
 use crate::dp::gpio::GPIO;
 use core::ptr::{read_volatile, write_volatile};
 
