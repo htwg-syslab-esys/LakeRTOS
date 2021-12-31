@@ -1,6 +1,8 @@
 //! # General purpose input/output (GPIO)
-//! 
+//!
 //! Peripheral is located at [AHB2][crate::dp::bus::AHB2]
+
+use crate::util::register::Register;
 
 /// General purpose input/output
 ///
@@ -8,15 +10,15 @@
 /// GPIO registers - Section 11.4
 #[repr(C)]
 pub struct GPIO {
-    pub moder: u32,
-    pub otyper: u32,
-    pub ospeedr: u32,
-    pub pupdr: u32,
-    pub idr: u32,
-    pub odr: u32,
-    pub bsrr: u32,
-    pub lckr: u32,
-    pub afrl: u32,
-    pub afrh: u32,
-    pub brr: u32,
+    pub moder: Register,
+    pub otyper: Register,
+    pub ospeedr: Register,
+    pub pupdr: Register,
+    pub idr: Register,
+    pub odr: Register,
+    pub bsrr: Register,
+    pub lckr: Register,
+    pub afrl: Register,
+    pub afrh: Register,
+    pub brr: Register,
 }
