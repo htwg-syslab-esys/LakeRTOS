@@ -68,7 +68,7 @@ impl LEDs {
     pub fn check_init(&mut self, led: CardinalPoints) {
         if !self.initialized[led as usize - 8] {
             self.gpio.moder.replace_bits(led as u32 * 2, 0b01, 2);
-            self.gpio.otyper.set_bit(led as u32);
+            self.gpio.otyper.clear_bit(led as u32);
             self.initialized[led as usize - 8] = true;
         }
     }
