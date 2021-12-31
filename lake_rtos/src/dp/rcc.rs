@@ -25,7 +25,7 @@ pub struct RCC {
 }
 
 impl RCC {
-    /// Enables port e
+    /// Enables the clock on AHB Bus which is connected to gpio port e
     pub fn iopeen(&mut self) -> &mut RCC {
         self.ahbenr.set_bit(21);
         self
