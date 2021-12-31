@@ -66,6 +66,28 @@ impl Register {
         self
     }
 
+    /// Clears one single bit
+    /// 
+    /// # Arguments
+    /// 
+    /// * `pos` - A u32 which represents the bit position to be cleared (LSB)
+    ///
+    /// # Returns
+    /// * `None`
+    /// 
+    /// 
+    /// Example:
+    /// let bits = 0b00101_1100;
+    /// 
+    /// clear_bit(4);
+    /// 
+    /// ```
+    ///     0b0101_1100
+    ///     0b0001_0000
+    /// NAND____________
+    ///     0b0100_1100
+    /// ```
+    ///
     pub fn clear_bit(&mut self, pos: u32) {
         unsafe {
             write_volatile(
@@ -75,6 +97,8 @@ impl Register {
         }
     }
 
+    /// 
+    /// Clears a block of bits
     /// 
     /// # Arguments
     /// 
@@ -114,6 +138,7 @@ impl Register {
         }
     }
 
+    /// Converts a amount as number into a block of bits matching the amount
     /// 
     /// # Arguments
     /// 
