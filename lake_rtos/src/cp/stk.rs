@@ -2,20 +2,21 @@
 //!
 //! [Programming Manual](https://www.st.com/content/ccc/resource/technical/document/programming_manual/6c/3a/cb/e7/e4/ea/44/9b/DM00046982.pdf/files/DM00046982.pdf/jcr:content/translations/en.DM00046982.pdf)
 //! Section 4.5 - p.246
+use crate::util::register::Register;
+
 use super::SYSTICK_TIMER;
-use core::ptr::{read_volatile, write_volatile};
 
 /// System Timers registers
 #[repr(C)]
 struct Systick {
     /// Control and status register (RW)
-    stk_ctrl: u32,
+    stk_ctrl: Register,
     /// Reload value register (RW)
-    stk_load: u32,
+    stk_load: Register,
     /// Current value register (RW)
-    stk_val: u32,
+    stk_val: Register,
     /// Calibration value register (RO)
-    stk_calib: u32,
+    stk_calib: Register,
 }
 
 /// System Timer
@@ -41,12 +42,7 @@ impl SystemTimer {
     /// Reload value can be any value in the range 0x00000001-0x00FFFFFF.
     pub fn set_reload(self, load: u32) -> SystemTimer {
         if load <= 0x00FFFFFF {
-            unsafe {
-                write_volatile(
-                    &mut self.p.stk_load as *mut u32,
-                    read_volatile(&mut self.p.stk_load) | load,
-                );
-            }
+            self.p.stk_load.replace_bits(0, load, 31);
         }
         self
     }
@@ -54,34 +50,19 @@ impl SystemTimer {
     /// Any write to the register will clear the field to 0 and sets the COUNTFLAG
     /// in STK_CTRL register to 0.
     pub fn clear_val(self) -> SystemTimer {
-        unsafe {
-            write_volatile(
-                &mut self.p.stk_val as *mut u32,
-                read_volatile(&mut self.p.stk_val) | 0b1,
-            );
-        }
+        self.p.stk_val.set_bit(0);
         self
     }
 
     /// SysTick exception request enable
     pub fn tickint(self, enable: bool) -> SystemTimer {
-        unsafe {
-            write_volatile(
-                &mut self.p.stk_ctrl as *mut u32,
-                read_volatile(&mut self.p.stk_ctrl) | (enable as u32) << 1,
-            );
-        }
+        self.p.stk_ctrl.replace_bits(1, enable as u32, 1);
         self
     }
 
     /// Enables the counter
     pub fn enable(self) -> SystemTimer {
-        unsafe {
-            write_volatile(
-                &mut self.p.stk_ctrl as *mut u32,
-                read_volatile(&mut self.p.stk_ctrl) | 0b1,
-            );
-        }
+        self.p.stk_ctrl.set_bit(0);
         self
     }
 }
