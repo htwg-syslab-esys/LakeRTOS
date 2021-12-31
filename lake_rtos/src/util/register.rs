@@ -1,9 +1,9 @@
 //! # Register
-//! 
+//!
 //! Light wrapper for register manipulation without error handling.
-//! 
+//!
 //! For invalid or wrong inputs chances are that you destroy your system.
-//! 
+//!
 //! Be careful!
 
 use core::ptr::{read_volatile, write_volatile};

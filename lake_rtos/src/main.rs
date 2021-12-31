@@ -7,7 +7,7 @@ extern crate lake_rtos_rt;
 
 mod cp;
 mod dp;
-mod leds;
+mod driver;
 mod util;
 
 use cp::CorePeripherals;
@@ -17,10 +17,10 @@ use dp::{
     rcc::RCC,
     DevicePeripherals,
 };
-use leds::{CardinalPoints::*, LEDs};
+use driver::leds::{CardinalPoints::*, LEDs};
 
 /// LEDs hook for exceptions
-static mut LEDS: Option<leds::LEDs> = None;
+static mut LEDS: Option<LEDs> = None;
 
 /// Kernel main
 #[no_mangle]
@@ -31,7 +31,7 @@ fn kmain() -> ! {
     ahb1.rcc(|rcc: &mut RCC| rcc.iopeen());
 
     let gpioe: &mut GPIO = bus.ahb2().gpioe();
-    let mut leds: LEDs = leds::LEDs::new(gpioe);
+    let mut leds: LEDs = LEDs::new(gpioe);
 
     leds.on(South);
 
