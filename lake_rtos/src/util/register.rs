@@ -1,4 +1,10 @@
 //! # Register
+//! 
+//! Light wrapper for register manipulation without error handling.
+//! 
+//! For invalid or wrong inputs chances are that you destroy your system.
+//! 
+//! Be careful!
 
 use core::ptr::{read_volatile, write_volatile};
 
@@ -13,7 +19,7 @@ impl Register {
         unsafe { read_volatile(&mut self.register) }
     }
 
-    pub fn read_bits(&mut self, pos: u32, length: u32) -> u32 {
+    pub fn read_bits(&mut self, _pos: u32, _length: u32) -> u32 {
         unimplemented!()
     }
 
@@ -54,7 +60,7 @@ impl Register {
         unsafe {
             write_volatile(
                 &mut self.register as *mut u32,
-                read_volatile(&mut self.register) ^ mask
+                read_volatile(&mut self.register) ^ mask,
             );
         }
         self

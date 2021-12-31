@@ -89,14 +89,5 @@ impl LEDs {
     pub fn toggle(&mut self, led: CardinalPoints) {
         self.check_init(led);
         self.gpio.odr.flip_bits(led as u32, 1);
-
-        // let odr = self.gpio.odr.read();
-        
-        // unsafe {
-        //     write_volatile(
-        //         &mut self.gpio.odr as *mut u32,
-        //         odr ^ (on_bit | 0b1) << led as usize,
-        //     );
-        // }
     }
 }
