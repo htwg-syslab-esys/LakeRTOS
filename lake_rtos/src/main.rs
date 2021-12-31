@@ -8,6 +8,7 @@ extern crate lake_rtos_rt;
 mod cp;
 mod dp;
 mod leds;
+mod util;
 
 use cp::CorePeripherals;
 use dp::{

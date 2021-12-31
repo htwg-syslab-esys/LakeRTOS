@@ -53,14 +53,14 @@ pub enum CardinalPoints {
 ///
 /// Consists of eight LEDs in an cardinal points layout. They can be accessed with enum type [CardinalPoints].
 pub struct LEDs {
-    gpioe: &'static mut GPIO,
+    gpio: &'static mut GPIO,
     initialized: [bool; 8],
 }
 
 impl LEDs {
     pub fn new(gpioe: &'static mut GPIO) -> LEDs {
         LEDs {
-            gpioe,
+            gpio: gpioe,
             initialized: [false; 8],
         }
     }
@@ -70,12 +70,12 @@ impl LEDs {
         if !self.initialized[led as usize - 8] {
             unsafe {
                 write_volatile(
-                    &mut self.gpioe.moder as *mut u32,
-                    read_volatile(&mut self.gpioe.moder) | 0b01 << (led as usize * 2),
+                    &mut self.gpio.moder as *mut u32,
+                    read_volatile(&mut self.gpio.moder) | 0b01 << (led as usize * 2),
                 );
                 write_volatile(
-                    &mut self.gpioe.otyper as *mut u32,
-                    read_volatile(&mut self.gpioe.otyper) & 0b1 << led as usize,
+                    &mut self.gpio.otyper as *mut u32,
+                    read_volatile(&mut self.gpio.otyper) & 0b1 << led as usize,
                 );
             }
             self.initialized[led as usize - 8] = true;
@@ -87,8 +87,8 @@ impl LEDs {
         self.check_init(led);
         unsafe {
             write_volatile(
-                &mut self.gpioe.odr as *mut u32,
-                read_volatile(&mut self.gpioe.odr) | (0b1 as u32) << led as usize,
+                &mut self.gpio.odr as *mut u32,
+                read_volatile(&mut self.gpio.odr) | (0b1 as u32) << led as usize,
             );
         }
     }
@@ -98,8 +98,8 @@ impl LEDs {
     pub fn off(&mut self, led: CardinalPoints) {
         unsafe {
             write_volatile(
-                &mut self.gpioe.odr as *mut u32,
-                read_volatile(&mut self.gpioe.odr) ^ (0b1 as u32) << led as usize,
+                &mut self.gpio.odr as *mut u32,
+                read_volatile(&mut self.gpio.odr) ^ (0b1 as u32) << led as usize,
             );
         }
     }
@@ -107,11 +107,11 @@ impl LEDs {
     /// Toggles the led. If necessary, initializes the led.
     pub fn toggle(&mut self, led: CardinalPoints) {
         self.check_init(led);
-        let odr = unsafe { read_volatile(&mut self.gpioe.odr) };
+        let odr = unsafe { read_volatile(&mut self.gpio.odr) };
         let on_bit = odr & (1 << led as usize);
         unsafe {
             write_volatile(
-                &mut self.gpioe.odr as *mut u32,
+                &mut self.gpio.odr as *mut u32,
                 odr ^ (on_bit | 0b1) << led as usize,
             );
         }
