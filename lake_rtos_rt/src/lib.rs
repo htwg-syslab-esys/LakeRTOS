@@ -1,7 +1,17 @@
+//!
+//! Contains the first entrypoint for startup procedure.
+//! Only for runtime purposes, acts as a platform for the kernel
+//! code build on top of it.
+//!
+
 #![no_std]
 
 use core::{panic::PanicInfo, ptr};
 
+///
+/// Mandatory resetfunction at adress 0x08000004.
+/// Gets called after power on the cpu.
+///
 #[no_mangle]
 pub unsafe extern "C" fn Reset() -> ! {
     // Initialize RAM
@@ -20,16 +30,22 @@ pub unsafe extern "C" fn Reset() -> ! {
     let count = &_edata as *const u8 as usize - &_sdata as *const u8 as usize;
     ptr::copy_nonoverlapping(&_sidata as *const u8, &mut _sdata as *mut u8, count);
 
+    // reference to target function
     extern "Rust" {
         fn kmain() -> !;
     }
-
-    kmain()
+    
+    kmain();
 }
 
+///
+/// Manually create a section with points to the adress of 
+/// the reset function.
+///
 #[link_section = ".vector_table.reset_vector"]
 #[no_mangle]
 pub static RESET_VECTOR: unsafe extern "C" fn() -> ! = Reset;
+
 
 #[panic_handler]
 fn panic(_panic: &PanicInfo<'_>) -> ! {
