@@ -64,7 +64,7 @@ impl LEDs {
         }
     }
 
-    /// Checks if the passed LED is initialized. If not, the 
+    /// Checks if the passed LED is initialized. If not, the
     /// gpio initialization steps get done described in the main
     /// documentation of this module.
     pub fn check_init(&mut self, led: CardinalPoints) {

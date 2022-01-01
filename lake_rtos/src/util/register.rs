@@ -15,6 +15,15 @@ pub struct Register {
 
 #[allow(dead_code)]
 impl Register {
+    /// Returns the content of the according register
+    ///
+    /// # Arguments
+    ///
+    /// * `None`
+    ///
+    /// # Returns
+    /// * `u32` - The register content
+    ///
     pub fn read(&mut self) -> u32 {
         unsafe { read_volatile(&mut self.register) }
     }
@@ -23,6 +32,24 @@ impl Register {
         unimplemented!()
     }
 
+    /// Sets a single bit to '1'
+    ///
+    /// Clears out the matching positions first.
+    ///
+    /// # Arguments
+    ///
+    /// * `pos` - A u32 which represents the bit position to be altered (LSB)
+    ///
+    /// # Returns
+    /// * `Register` + A mutable Reference to the altered register
+    ///
+    /// ```
+    ///     0b0101_1010
+    ///     0b0000_0100
+    /// OR______________
+    ///     0b0101_1110
+    /// ```
+    ///
     pub fn set_bit(&mut self, pos: u32) -> &mut Register {
         unsafe {
             write_volatile(
@@ -33,6 +60,25 @@ impl Register {
         self
     }
 
+    /// Turns a given set of bits to '1'
+    ///
+    /// Builds a "0b..1111.." pattern first.
+    ///
+    /// # Arguments
+    ///
+    /// * `pos` - A u32 which represents the bit position to be altered (LSB)
+    /// * `length` - A u32 which represents the number of bits to be set
+    ///
+    /// # Returns
+    /// * `Register` + A mutable Reference to the altered register
+    ///
+    /// ```
+    ///     0b0101_1010
+    ///     0b0001_1110
+    /// OR______________
+    ///     0b0101_1110
+    /// ```
+    ///
     pub fn set_bits(&mut self, pos: u32, length: u32) -> &mut Register {
         let bit_ones = Register::length_to_ones_in_bit(length);
         unsafe {
@@ -44,6 +90,26 @@ impl Register {
         self
     }
 
+    /// Replaces a set of bits with the given pattern.
+    ///
+    /// Clears out the matching positions first.
+    ///
+    /// # Arguments
+    ///
+    /// * `pos` - A u32 which represents the bit position to be altered (LSB)
+    /// * `length` - A u32 which represents the number of bits to be altered
+    /// * `new_value` - A u32 which represents the new bit pattern
+    ///
+    /// # Returns
+    /// * `None`
+    ///
+    /// ```
+    ///     0b0101_1010
+    ///     0b0001_0110
+    /// OR______________
+    ///     0b0101_0110
+    /// ```
+    ///
     pub fn replace_bits(&mut self, pos: u32, new_value: u32, length: u32) {
         self.clear_bits(pos, length);
         unsafe {
@@ -54,6 +120,23 @@ impl Register {
         }
     }
 
+    /// Toggles a bit to its according opposite
+    ///
+    /// # Arguments
+    ///
+    /// * `pos` - A u32 which represents the bit position to be altered (LSB)
+    /// * `length` - A u32 which represents the number of bits to be altered
+    ///
+    /// # Returns
+    /// * `Register` + A mutable Reference to the altered register
+    ///
+    /// ```
+    ///     0b0101_1010
+    ///     0b0001_1110
+    /// XOR____________
+    ///     0b0100_0100
+    /// ```
+    ///
     pub fn flip_bits(&mut self, pos: u32, length: u32) -> &mut Register {
         let bit_ones = Register::length_to_ones_in_bit(length);
         let mask = bit_ones << pos;
@@ -67,20 +150,19 @@ impl Register {
     }
 
     /// Clears one single bit
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `pos` - A u32 which represents the bit position to be cleared (LSB)
     ///
     /// # Returns
     /// * `None`
-    /// 
-    /// 
+    ///
     /// Example:
     /// let bits = 0b00101_1100;
-    /// 
+    ///
     /// clear_bit(4);
-    /// 
+    ///
     /// ```
     ///     0b0101_1100
     ///     0b0001_0000
@@ -97,29 +179,28 @@ impl Register {
         }
     }
 
-    /// 
+    ///
     /// Clears a block of bits
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `pos` - A u32 which represents the bit position to be altered (LSB)
     /// * `length` - A u32 which represents the number of bits to be altered
     ///
     /// # Returns
     /// * `None`
-    /// 
-    /// 
+    ///
     /// Example:
     /// let bits = 0b00101_1100;
-    /// 
+    ///
     /// clear_bits(2, 2);
-    /// 
+    ///
     /// *step 1:* get block of bits containg only 1's
     /// bit_ones = Register::length_to_ones_in_bit(length); // 0b11
-    /// 
+    ///
     /// *step 2:* move to desired position
     /// to_clear = bit_ones << pos; // 0b1100
-    /// 
+    ///
     /// *step 3:* perform NAND operation
     /// ```
     ///     0b0010_1100
@@ -139,21 +220,20 @@ impl Register {
     }
 
     /// Converts a amount as number into a block of bits matching the amount
-    /// 
+    ///
     /// # Arguments
-    /// 
-    /// * `length` - A u32 which represents the number of bits 
+    ///
+    /// * `length` - A u32 which represents the number of bits
     ///
     /// # Returns
     /// * `u32` - Format will be the number of bits a block like 4 : 0b1111
-    /// 
-    /// 
+    ///
     /// Example:
     /// let length = 3;
-    /// 
+    ///
     /// ```
     /// bit_ones = 0;
-    /// 
+    ///
     /// // 1st iteration
     /// bit_ones = 0b0<<1  | 0b1 -> 0b1
     /// // 2nd iteration  
