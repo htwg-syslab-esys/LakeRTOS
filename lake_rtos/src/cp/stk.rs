@@ -39,7 +39,30 @@ impl SystemTimer {
     }
 
     /// Sets the reload value
-    /// Reload value can be any value in the range 0x00000001-0x00FFFFFF.
+    ///
+    /// Reload value can be any value in the range ```0x00000001-0x00FFFFFF```.
+    /// On each clock cycle the value gets incremented by one.
+    /// The effective amount of time may calculated like this:
+    ///
+    /// time_cycle = 1 / clock
+    ///  
+    /// effective_time = register_value * time_cycle
+    ///
+    /// *Example*
+    /// time_cycle = 1 / 8000000 = 125 (ns)
+    ///
+    /// effective_time = 0x3AB * time_cycle = 939 * 125 (ns) = 117375 (ns)
+    ///
+    /// -> Result: Every 117,375 (usec) a interrupt gets fired.
+    ///
+    /// # Arguments
+    ///
+    /// * `load` - A u32 which represents the count of systicks until
+    /// a interrupt gets fired.
+    ///
+    /// # Returns
+    /// * `None`
+    ///
     pub fn set_reload(self, load: u32) -> SystemTimer {
         if load <= 0x00FFFFFF {
             self.p.stk_load.replace_bits(0, load, 31);
@@ -54,13 +77,15 @@ impl SystemTimer {
         self
     }
 
-    /// SysTick exception request enable
+    /// SysTick exception request enable.
+    /// Setting bit to *1* requests the SysTick Interrupt when the STK_LOAD Register
+    /// reaches 0.
     pub fn tickint(self, enable: bool) -> SystemTimer {
         self.p.stk_ctrl.replace_bits(1, enable as u32, 1);
         self
     }
 
-    /// Enables the counter
+    /// Enables the counter by setting `Bit 0 ENABLE: Counter enable`
     pub fn enable(self) -> SystemTimer {
         self.p.stk_ctrl.set_bit(0);
         self

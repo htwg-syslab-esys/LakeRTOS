@@ -64,7 +64,9 @@ impl LEDs {
         }
     }
 
-    /// If necessary, initializes the LED.
+    /// Checks if the passed LED is initialized. If not, the
+    /// gpio initialization steps get done described in the main
+    /// documentation of this module.
     pub fn check_init(&mut self, led: CardinalPoints) {
         if !self.initialized[led as usize - 8] {
             self.gpio.moder.replace_bits(led as u32 * 2, 0b01, 2);
