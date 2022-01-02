@@ -1,4 +1,5 @@
-//!
+//! # Lake RTOS runtime
+//! 
 //! Contains the first entrypoint for startup procedure.
 //! Only for runtime purposes, acts as a platform for the kernel
 //! code build on top of it.
