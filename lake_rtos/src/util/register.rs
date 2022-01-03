@@ -19,7 +19,7 @@ impl Register {
     ///
     /// # Arguments
     ///
-    /// * `None`
+    /// * `Nothing`
     ///
     /// # Returns
     /// * `u32` - The register content
@@ -43,7 +43,7 @@ impl Register {
     /// # Returns
     /// * `Register` + A mutable Reference to the altered register
     ///
-    /// ```
+    /// ```text
     ///     0b0101_1010
     ///     0b0000_0100
     /// OR______________
@@ -72,7 +72,7 @@ impl Register {
     /// # Returns
     /// * `Register` + A mutable Reference to the altered register
     ///
-    /// ```
+    /// ```text
     ///     0b0101_1010
     ///     0b0001_1110
     /// OR______________
@@ -101,9 +101,9 @@ impl Register {
     /// * `new_value` - A u32 which represents the new bit pattern
     ///
     /// # Returns
-    /// * `None`
+    /// * `Nothing`
     ///
-    /// ```
+    /// ```text
     ///     0b0101_1010
     ///     0b0001_0110
     /// OR______________
@@ -130,7 +130,7 @@ impl Register {
     /// # Returns
     /// * `Register` + A mutable Reference to the altered register
     ///
-    /// ```
+    /// ```text
     ///     0b0101_1010
     ///     0b0001_1110
     /// XOR____________
@@ -156,14 +156,15 @@ impl Register {
     /// * `pos` - A u32 which represents the bit position to be cleared (LSB)
     ///
     /// # Returns
-    /// * `None`
+    /// * `Nothing`
     ///
-    /// Example:
+    /// # Example
+    ///
     /// let bits = 0b00101_1100;
     ///
     /// clear_bit(4);
     ///
-    /// ```
+    /// ```text
     ///     0b0101_1100
     ///     0b0001_0000
     /// NAND____________
@@ -190,7 +191,7 @@ impl Register {
     /// # Returns
     /// * `None`
     ///
-    /// Example:
+    /// # Example
     /// let bits = 0b00101_1100;
     ///
     /// clear_bits(2, 2);
@@ -202,7 +203,7 @@ impl Register {
     /// to_clear = bit_ones << pos; // 0b1100
     ///
     /// *step 3:* perform NAND operation
-    /// ```
+    /// ```text
     ///     0b0010_1100
     ///     0b0000_1100
     /// NAND___________
@@ -228,10 +229,10 @@ impl Register {
     /// # Returns
     /// * `u32` - Format will be the number of bits a block like 4 : 0b1111
     ///
-    /// Example:
+    /// # Example
     /// let length = 3;
     ///
-    /// ```
+    /// ```text
     /// bit_ones = 0;
     ///
     /// // 1st iteration
