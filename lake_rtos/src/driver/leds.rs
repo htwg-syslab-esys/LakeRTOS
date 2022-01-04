@@ -56,6 +56,7 @@ pub struct LEDs {
     initialized: [bool; 8],
 }
 
+#[allow(dead_code)]
 impl LEDs {
     pub fn new(gpioe: &'static mut GPIO) -> LEDs {
         LEDs {
@@ -82,7 +83,6 @@ impl LEDs {
     }
 
     /// Turns the LED off.
-    #[allow(dead_code)]
     pub fn off(&mut self, led: CardinalPoints) {
         self.gpio.odr.clear_bit(led as u32);
     }

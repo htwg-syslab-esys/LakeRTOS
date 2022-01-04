@@ -18,48 +18,35 @@ use dp::{
     rcc::RCC,
     DevicePeripherals,
 };
-use driver::leds::{
-    CardinalPoints::{self, *},
-    LEDs,
-};
-use kernel::threads::Processes;
+use driver::leds::{CardinalPoints::*, LEDs};
+use kernel::{processes::Processes, PROCESS_OFFSET_TABLE};
 
 /// LEDs hook for exceptions
 static mut LEDS: Option<LEDs> = None;
 /// Boolean flag for countdown timer
 static mut COUNTDOWN_FINISHED: bool = false;
 
-static mut PROCESS_OFFSET_TABLE: Option<Processes> = None;
-
-const LED_DEMO_CLOSURE: fn(CardinalPoints) -> ! = |dir: CardinalPoints| loop {
+const LED_DEMO_CLOSURE: fn(usize) -> ! = |pid_next: usize| loop {
     unsafe {
         if COUNTDOWN_FINISHED {
             match &mut LEDS {
-                Some(leds) => leds.toggle(dir),
+                Some(leds) => leds.toggle(North),
                 None => {}
             }
             COUNTDOWN_FINISHED = false;
             if let Some(processes) = &mut PROCESS_OFFSET_TABLE {
-                processes.switch_to_next_process();
+                processes.switch_to_pid(pid_next);
             }
         }
     }
 };
 
 fn user_task_led_north() -> ! {
-    LED_DEMO_CLOSURE(North)
+    LED_DEMO_CLOSURE(1)
 }
 
 fn user_task_led_east() -> ! {
-    LED_DEMO_CLOSURE(East)
-}
-
-fn user_task_led_west() -> ! {
-    LED_DEMO_CLOSURE(West)
-}
-
-fn user_task_led_south() -> ! {
-    LED_DEMO_CLOSURE(South)
+    LED_DEMO_CLOSURE(0)
 }
 
 /// Kernel main
@@ -86,12 +73,9 @@ fn kmain() -> ! {
     };
 
     if let Some(processes) = unsafe { &mut PROCESS_OFFSET_TABLE } {
-        processes.create_process(user_task_led_north).unwrap();
-        processes.create_process(user_task_led_east).unwrap();
-        processes.create_process(user_task_led_south).unwrap();
-        processes.create_process(user_task_led_west).unwrap();
-
-        processes.switch_to_next_process();
+        processes.create(user_task_led_north).unwrap();
+        processes.create(user_task_led_east).unwrap();
+        processes.switch_to_pid(0);
     }
 
     loop {}

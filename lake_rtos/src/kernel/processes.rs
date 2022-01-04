@@ -1,4 +1,4 @@
-//! # Threads
+//! # Processes
 //!
 //! Processes will be placed top of SRAM
 //!
@@ -24,12 +24,7 @@
 //!
 //! A process has 4K memory available.
 
-use core::{
-    iter::Cycle,
-    mem::replace,
-    ops::Range,
-    ptr,
-};
+use core::ptr;
 
 use super::{__context_switch, PROCESS_BASE};
 
@@ -40,29 +35,33 @@ pub enum ProcessesError {
     ProcessStackFull,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ProcessState {
+    Uninitialized,
+    Initialized,
+}
+
 #[derive(Debug)]
 #[repr(C)]
 pub struct Processes {
-    threads: [ProcessFrame; ALLOWED_PROCESSES],
-    pid_cycle: Cycle<Range<usize>>,
-    latest_psp_addr: u32,
+    processes: [ProcessFrame; ALLOWED_PROCESSES],
+    current_processes_index: usize,
 }
 
 impl Processes {
     pub fn init() -> Processes {
         Processes {
-            threads: [ProcessFrame::uninit(); ALLOWED_PROCESSES],
-            pid_cycle: (0..ALLOWED_PROCESSES).cycle(),
-            latest_psp_addr: 0,
+            processes: [ProcessFrame::uninit(); ALLOWED_PROCESSES],
+            current_processes_index: 0,
         }
     }
 
-    pub fn create_process(&mut self, init_fn: fn() -> !) -> Result<usize, ProcessesError> {
+    pub fn create(&mut self, init_fn: fn() -> !) -> Result<usize, ProcessesError> {
         if let Some((pid, empty_slot)) = self
-            .threads
+            .processes
             .iter_mut()
             .enumerate()
-            .find(|(_, process_frame)| !process_frame.init)
+            .find(|(_, process_frame)| process_frame.state == ProcessState::Uninitialized)
         {
             let init_stack_frame =
                 unsafe { &mut *((PROCESS_BASE - (pid as u32 * 0x1000)) as *mut InitialStackFrame) };
@@ -72,31 +71,20 @@ impl Processes {
             };
             let auto_stack_addr = ptr::addr_of_mut!(init_stack_frame.auto_stack.r0);
             *empty_slot = ProcessFrame::init(pid, auto_stack_addr as u32);
-
             Ok(pid)
         } else {
             Err(ProcessesError::ProcessStackFull)
         }
     }
 
-    pub fn switch_to_next_process(&mut self) {
-        if self.threads.iter().all(|t| !t.init) {
-            return;
-        }
-        loop {
-            if let Some(pid) = self.pid_cycle.next() {
-                if !self.threads[pid].init {
-                    continue;
-                }
-                unsafe {
-                    let latest_psp = replace(
-                        &mut self.latest_psp_addr,
-                        ptr::addr_of_mut!(self.threads[pid].psp) as u32,
-                    );
-                    __context_switch(self.threads[pid].psp, latest_psp);
-                }
-            }
-            break;
+    pub fn switch_to_pid(&mut self, pid: usize) {
+        unsafe {
+            let current_psp_addr =
+                ptr::addr_of_mut!(self.processes[self.current_processes_index].psp) as u32;
+
+            self.current_processes_index = pid;
+
+            __context_switch(self.processes[pid].psp, current_psp_addr);
         }
     }
 }
@@ -104,7 +92,7 @@ impl Processes {
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct ProcessFrame {
-    init: bool,
+    state: ProcessState,
     psp: u32,
     pid: usize,
 }
@@ -112,7 +100,7 @@ pub struct ProcessFrame {
 impl ProcessFrame {
     pub fn init(pid: usize, psp: u32) -> ProcessFrame {
         ProcessFrame {
-            init: true,
+            state: ProcessState::Initialized,
             pid,
             psp,
         }
@@ -120,7 +108,7 @@ impl ProcessFrame {
 
     pub fn uninit() -> ProcessFrame {
         ProcessFrame {
-            init: false,
+            state: ProcessState::Uninitialized,
             pid: 0,
             psp: 0,
         }

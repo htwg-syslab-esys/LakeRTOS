@@ -15,13 +15,16 @@ __context_switch:
 .type SVCall, %function
 .global SVCall
 SVCall: 
+    // Saves current process, except it's called from msp
     mov r2, #0xfffffffd
     cmp r2, lr
     ITTT EQ
     mrseq r2, psp
     stmdbeq r2, {r4, r5, r6, r7, r8, r9, r10, r11, lr}
+    // Saves current psp in array
     stmeq r1, {r2}
 
+    // Loads new process
     ldmdb r0, {r4, r5, r6, r7, r8, r9, r10, r11, lr}
     msr psp, r0
     isb
