@@ -26,12 +26,11 @@ static mut LEDS: Option<LEDs> = None;
 /// Boolean flag for countdown timer
 static mut COUNTDOWN_FINISHED: bool = false;
 
-const LED_DEMO_CLOSURE: fn(usize) -> ! = |pid_next: usize| loop {
+const LED_DEMO_CLOSURE: fn(usize, led: fn(&mut LEDs)) -> ! = |pid_next: usize, led: fn(&mut LEDs)| loop {
     unsafe {
         if COUNTDOWN_FINISHED {
-            match &mut LEDS {
-                Some(leds) => leds.toggle(North),
-                None => {}
+            if let Some(leds) = &mut LEDS {
+                led(leds)
             }
             COUNTDOWN_FINISHED = false;
             if let Some(processes) = &mut PROCESS_OFFSET_TABLE {
@@ -41,12 +40,12 @@ const LED_DEMO_CLOSURE: fn(usize) -> ! = |pid_next: usize| loop {
     }
 };
 
-fn user_task_led_north() -> ! {
-    LED_DEMO_CLOSURE(1)
+fn user_task_led_on() -> ! {
+    LED_DEMO_CLOSURE(1, |led| led.on(North))
 }
 
-fn user_task_led_east() -> ! {
-    LED_DEMO_CLOSURE(0)
+fn user_task_led_off() -> ! {
+    LED_DEMO_CLOSURE(0, |led| led.off(North))
 }
 
 /// Kernel main
@@ -72,10 +71,10 @@ fn kmain() -> ! {
         PROCESS_OFFSET_TABLE = Some(Processes::init());
     };
 
-    if let Some(processes) = unsafe { &mut PROCESS_OFFSET_TABLE } {
-        processes.create(user_task_led_north).unwrap();
-        processes.create(user_task_led_east).unwrap();
-        processes.switch_to_pid(0);
+    if let Some(p) = unsafe { &mut PROCESS_OFFSET_TABLE } {
+        p.create(user_task_led_on).unwrap();
+        p.create(user_task_led_off).unwrap();
+        p.switch_to_pid(0);
     }
 
     loop {}
