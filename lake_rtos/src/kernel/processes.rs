@@ -28,11 +28,19 @@ use core::ptr;
 
 use super::{__context_switch, PROCESS_BASE};
 
+/// Maximum allowed processes
 const ALLOWED_PROCESSES: usize = 4;
+/// The reserved memory for a process. This does not protect against memory overflow.
+const PROCESS_MEMORY_SIZE: u32 = 0x1000;
 
 #[derive(Debug)]
 pub enum ProcessesError {
+    /// Process stack is completely occupied.
     ProcessStackFull,
+    /// Process was not initialized.
+    NotInitialized,
+    /// Process is not available. (Index out of Bounds)
+    ProcessNotAvailable,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -42,17 +50,16 @@ pub enum ProcessState {
 }
 
 #[derive(Debug)]
-#[repr(C)]
 pub struct Processes {
     processes: [ProcessFrame; ALLOWED_PROCESSES],
-    current_processes_index: usize,
+    current_process_idx: Option<usize>,
 }
 
 impl Processes {
     pub fn init() -> Processes {
         Processes {
             processes: [ProcessFrame::uninit(); ALLOWED_PROCESSES],
-            current_processes_index: 0,
+            current_process_idx: None,
         }
     }
 
@@ -63,12 +70,16 @@ impl Processes {
             .enumerate()
             .find(|(_, process_frame)| process_frame.state == ProcessState::Uninitialized)
         {
-            let init_stack_frame =
-                unsafe { &mut *((PROCESS_BASE - (pid as u32 * 0x1000)) as *mut InitialStackFrame) };
+            let init_stack_frame = unsafe {
+                &mut *((PROCESS_BASE - (pid as u32 * PROCESS_MEMORY_SIZE))
+                    as *mut InitialStackFrame)
+            };
+
             *init_stack_frame = InitialStackFrame {
                 load_stack: LoadStackFrame::default(),
                 auto_stack: AutoStackFrame::default(init_fn),
             };
+
             let auto_stack_addr = ptr::addr_of_mut!(init_stack_frame.auto_stack.r0);
             *empty_slot = ProcessFrame::init(pid, auto_stack_addr as u32);
             Ok(pid)
@@ -77,15 +88,44 @@ impl Processes {
         }
     }
 
-    pub fn switch_to_pid(&mut self, pid: usize) {
-        unsafe {
-            let current_psp_addr =
-                ptr::addr_of_mut!(self.processes[self.current_processes_index].psp) as u32;
-
-            self.current_processes_index = pid;
-
-            __context_switch(self.processes[pid].psp, current_psp_addr);
+    /// Prepares the context switch and then actually calls [__context_switch].
+    ///
+    /// # Arguments
+    ///
+    /// * [usize] process id (pid)
+    ///
+    /// # Returns
+    ///
+    /// * [Ok] when context switch was successful.
+    /// * [ProcessesError] when context switch failed.
+    /// 
+    /// *Note*
+    /// 
+    /// When switching from msp, that is current_process_idx is [None], the argument 
+    /// in [__context_switch] from_psp_addr can be 0, because it will not be used.
+    pub unsafe fn switch_to_pid(&mut self, pid: usize) -> Result<(), ProcessesError> {
+        match self.processes.get(pid) {
+            Some(process) => {
+                if process.state == ProcessState::Uninitialized {
+                    return Err(ProcessesError::NotInitialized);
+                }
+            }
+            None => return Err(ProcessesError::ProcessNotAvailable),
         }
+
+        let current_psp_addr = if let Some(current_process_idx) = self.current_process_idx {
+            let current_psp_addr =
+                ptr::addr_of_mut!(self.processes[current_process_idx].psp) as u32;
+            current_psp_addr
+        } else {
+            0
+        };
+        self.current_process_idx = Some(pid);
+        __context_switch(
+            ptr::addr_of_mut!(self.processes[pid].psp) as u32,
+            current_psp_addr,
+        );
+        Ok(())
     }
 }
 
@@ -142,13 +182,13 @@ impl LoadStackFrame {
         LoadStackFrame {
             _buffer: [0; 7],
             r4: 0x3,
-            r5: 0xaa,
-            r6: 0xbb,
+            r5: 0,
+            r6: 0,
             r7: 0,
             r8: 0,
             r9: 0,
             r10: 0,
-            r11: 0xff,
+            r11: 0,
             lr: 0xfffffffd,
         }
     }

@@ -9,7 +9,7 @@ __breakpoint:
 
 .global __context_switch
 __context_switch:
-    svc 0
+    svc 0 ;
     bx lr
 
 .type SVCall, %function
@@ -25,6 +25,7 @@ SVCall:
     stmeq r1, {r2}
 
     // Loads new process
+    ldm r0, {r0}
     ldmdb r0, {r4, r5, r6, r7, r8, r9, r10, r11, lr}
     msr psp, r0
     isb
