@@ -33,6 +33,8 @@ const ALLOWED_PROCESSES: usize = 4;
 /// The reserved memory for a process. This does not protect against memory overflow.
 const PROCESS_MEMORY_SIZE: u32 = 0x1000;
 
+static mut PROCESS_OFFSET_TABLE: Option<Processes> = None;
+
 #[derive(Debug)]
 pub enum ProcessesError {
     /// Process stack is completely occupied.
@@ -56,10 +58,19 @@ pub struct Processes {
 }
 
 impl Processes {
-    pub fn init() -> Processes {
-        Processes {
-            processes: [ProcessState::Uninitialized; ALLOWED_PROCESSES],
-            current_process_idx: None,
+    /// Only the first call will return Ok([Processes])
+    pub fn take() -> Result<&'static mut Option<Processes>, ()> {
+        unsafe {
+            match PROCESS_OFFSET_TABLE {
+                Some(_) => return Err(()),
+                None => {
+                    PROCESS_OFFSET_TABLE = Some(Processes {
+                        processes: [ProcessState::Uninitialized; ALLOWED_PROCESSES],
+                        current_process_idx: None,
+                    });
+                    Ok(&mut PROCESS_OFFSET_TABLE)
+                }
+            }
         }
     }
 
@@ -106,7 +117,7 @@ impl Processes {
     ///
     /// When switching from msp, that is current_process_idx is [None], the argument
     /// in [__context_switch] from_psp_addr can be 0, because it will not be used.
-    pub unsafe fn switch_to_pid(&mut self, pid: usize) -> Result<(), ProcessesError> {
+    pub fn switch_to_pid(&mut self, pid: usize) -> Result<(), ProcessesError> {
         if let Some(process) = self.processes.get(pid) {
             if let ProcessState::Initialized(mut next_process) = process {
                 let psp_current_addr = match self.get_current_process() {
@@ -115,7 +126,9 @@ impl Processes {
                 };
                 self.current_process_idx = Some(pid);
 
-                __context_switch(ptr::addr_of_mut!(next_process.psp) as u32, psp_current_addr);
+                unsafe {
+                    __context_switch(ptr::addr_of_mut!(next_process.psp) as u32, psp_current_addr);
+                }
 
                 Ok(())
             } else {
@@ -125,7 +138,6 @@ impl Processes {
             return Err(ProcessesError::ProcessNotAvailable);
         }
     }
-
 
     /// The current process frame is either [Some] [ProcessState::Initialized] [ProcessFrame] or [None] when no process was ever running.
     fn get_current_process(&self) -> Option<&ProcessFrame> {

@@ -19,22 +19,24 @@ use dp::{
     DevicePeripherals,
 };
 use driver::leds::{CardinalPoints::*, LEDs};
-use kernel::{processes::Processes, PROCESS_OFFSET_TABLE};
+use kernel::processes::Processes;
 
 /// LEDs hook for exceptions
 static mut LEDS: Option<LEDs> = None;
 /// Boolean flag for countdown timer
-static mut COUNTDOWN_FINISHED: bool = false;
+static mut COUNTDOWN_FLAG: bool = false;
+/// Static mutable reference hook for Processes (for demonstration purposes)
+static mut PROCESSES: Option<&mut Processes> = None;
 
 const LED_DEMO_CLOSURE: fn(usize, led: fn(&mut LEDs)) -> ! =
-    |pid_next: usize, led: fn(&mut LEDs)| loop {
-        unsafe {
-            if COUNTDOWN_FINISHED {
+    |pid_next: usize, led: fn(&mut LEDs)| unsafe {
+        loop {
+            if COUNTDOWN_FLAG {
                 if let Some(leds) = &mut LEDS {
                     led(leds)
                 }
-                COUNTDOWN_FINISHED = false;
-                if let Some(processes) = &mut PROCESS_OFFSET_TABLE {
+                COUNTDOWN_FLAG = false;
+                if let Some(processes) = &mut PROCESSES {
                     processes.switch_to_pid(pid_next).unwrap();
                 }
             }
@@ -69,14 +71,19 @@ fn kmain() -> ! {
 
     unsafe {
         LEDS = Some(leds);
-        PROCESS_OFFSET_TABLE = Some(Processes::init());
 
-        if let Some(p) = &mut PROCESS_OFFSET_TABLE {
-            p.create(user_task_led_on).unwrap();
-            p.create(user_task_led_off).unwrap();
-            p.switch_to_pid(0).unwrap();
+        if let Ok(process_option) = Processes::take() {
+            if let Some(processes) = process_option {
+                PROCESSES = Some(processes);
+            }
         }
     };
+
+    if let Some(p) = unsafe { &mut PROCESSES } {
+        p.create(user_task_led_on).unwrap();
+        p.create(user_task_led_off).unwrap();
+        p.switch_to_pid(0).unwrap();
+    }
 
     loop {}
 }

@@ -14,6 +14,9 @@ __context_switch:
 
 .type SVCall, %function
 .global SVCall
+// r0 and r1 are holding the addresses of corresponding struct field psp
+// * r0: *psp next process
+// * r1: *psp current process
 SVCall: 
     // Saves current process, except it's called from msp
     mov r2, #0xfffffffd
