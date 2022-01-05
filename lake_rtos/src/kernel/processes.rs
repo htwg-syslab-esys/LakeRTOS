@@ -24,7 +24,7 @@
 //!
 //! A process has 4K memory available.
 
-use core::ptr;
+use core::ptr::{self, addr_of};
 
 use super::{__context_switch, PROCESS_BASE};
 
@@ -41,24 +41,26 @@ pub enum ProcessesError {
     NotInitialized,
     /// Process is not available. (Index out of Bounds)
     ProcessNotAvailable,
+    /// This error indicates that an error with the previous process.
+    PreviousProcessError,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ProcessState {
     Uninitialized,
-    Initialized,
+    Initialized(ProcessFrame),
 }
 
 #[derive(Debug)]
 pub struct Processes {
-    processes: [ProcessFrame; ALLOWED_PROCESSES],
+    processes: [ProcessState; ALLOWED_PROCESSES],
     current_process_idx: Option<usize>,
 }
 
 impl Processes {
     pub fn init() -> Processes {
         Processes {
-            processes: [ProcessFrame::uninit(); ALLOWED_PROCESSES],
+            processes: [ProcessState::Uninitialized; ALLOWED_PROCESSES],
             current_process_idx: None,
         }
     }
@@ -68,7 +70,7 @@ impl Processes {
             .processes
             .iter_mut()
             .enumerate()
-            .find(|(_, process_frame)| process_frame.state == ProcessState::Uninitialized)
+            .find(|(_, &mut process_frame)| process_frame == ProcessState::Uninitialized)
         {
             let init_stack_frame = unsafe {
                 &mut *((PROCESS_BASE - (pid as u32 * PROCESS_MEMORY_SIZE))
@@ -81,7 +83,10 @@ impl Processes {
             };
 
             let auto_stack_addr = ptr::addr_of_mut!(init_stack_frame.auto_stack.r0);
-            *empty_slot = ProcessFrame::init(pid, auto_stack_addr as u32);
+
+            *empty_slot =
+                ProcessState::Initialized(ProcessFrame::init(pid, auto_stack_addr as u32));
+
             Ok(pid)
         } else {
             Err(ProcessesError::ProcessStackFull)
@@ -98,60 +103,50 @@ impl Processes {
     ///
     /// * [Ok] when context switch was successful.
     /// * [ProcessesError] when context switch failed.
-    /// 
+    ///
     /// *Note*
-    /// 
-    /// When switching from msp, that is current_process_idx is [None], the argument 
+    ///
+    /// When switching from msp, that is current_process_idx is [None], the argument
     /// in [__context_switch] from_psp_addr can be 0, because it will not be used.
     pub unsafe fn switch_to_pid(&mut self, pid: usize) -> Result<(), ProcessesError> {
-        match self.processes.get(pid) {
-            Some(process) => {
-                if process.state == ProcessState::Uninitialized {
-                    return Err(ProcessesError::NotInitialized);
-                }
+        if let Some(process) = self.processes.get(pid) {
+            if let ProcessState::Initialized(mut next_process) = process {
+                let current_psp_addr = if let Some(current_process_idx) = self.current_process_idx {
+                    if let ProcessState::Initialized(current_process) =
+                        // logically current_process_idx will always be a valid index for the array
+                        self.processes.get(current_process_idx).unwrap()
+                    {
+                        addr_of!(current_process.psp) as u32
+                    } else {
+                        return Err(ProcessesError::PreviousProcessError);
+                    }
+                } else {
+                    // This 0 will be ignored from the assembler function __context_switch, because
+                    // this case only happens when this function is called from msp
+                    0
+                };
+                self.current_process_idx = Some(pid);
+                __context_switch(ptr::addr_of_mut!(next_process.psp) as u32, current_psp_addr);
+                Ok(())
+            } else {
+                return Err(ProcessesError::NotInitialized);
             }
-            None => return Err(ProcessesError::ProcessNotAvailable),
-        }
-
-        let current_psp_addr = if let Some(current_process_idx) = self.current_process_idx {
-            let current_psp_addr =
-                ptr::addr_of_mut!(self.processes[current_process_idx].psp) as u32;
-            current_psp_addr
         } else {
-            0
-        };
-        self.current_process_idx = Some(pid);
-        __context_switch(
-            ptr::addr_of_mut!(self.processes[pid].psp) as u32,
-            current_psp_addr,
-        );
-        Ok(())
+            return Err(ProcessesError::ProcessNotAvailable);
+        }
     }
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProcessFrame {
-    state: ProcessState,
     psp: u32,
     pid: usize,
 }
 
 impl ProcessFrame {
     pub fn init(pid: usize, psp: u32) -> ProcessFrame {
-        ProcessFrame {
-            state: ProcessState::Initialized,
-            pid,
-            psp,
-        }
-    }
-
-    pub fn uninit() -> ProcessFrame {
-        ProcessFrame {
-            state: ProcessState::Uninitialized,
-            pid: 0,
-            psp: 0,
-        }
+        ProcessFrame { pid, psp }
     }
 }
 
