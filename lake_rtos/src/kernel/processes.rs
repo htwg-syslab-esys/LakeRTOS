@@ -24,7 +24,7 @@
 //!
 //! A process has 4K memory available.
 
-use core::ptr::{self, addr_of};
+use core::ptr::{self};
 
 use super::{__context_switch, PROCESS_BASE};
 
@@ -41,8 +41,6 @@ pub enum ProcessesError {
     NotInitialized,
     /// Process is not available. (Index out of Bounds)
     ProcessNotAvailable,
-    /// This error indicates that an error with the previous process.
-    PreviousProcessError,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -111,22 +109,14 @@ impl Processes {
     pub unsafe fn switch_to_pid(&mut self, pid: usize) -> Result<(), ProcessesError> {
         if let Some(process) = self.processes.get(pid) {
             if let ProcessState::Initialized(mut next_process) = process {
-                let current_psp_addr = if let Some(current_process_idx) = self.current_process_idx {
-                    if let ProcessState::Initialized(current_process) =
-                        // logically current_process_idx will always be a valid index for the array
-                        self.processes.get(current_process_idx).unwrap()
-                    {
-                        addr_of!(current_process.psp) as u32
-                    } else {
-                        return Err(ProcessesError::PreviousProcessError);
-                    }
-                } else {
-                    // This 0 will be ignored from the assembler function __context_switch, because
-                    // this case only happens when this function is called from msp
-                    0
+                let psp_current_addr = match self.get_current_process() {
+                    Some(current_process) => ptr::addr_of!(current_process.psp) as u32,
+                    None => 0,
                 };
                 self.current_process_idx = Some(pid);
-                __context_switch(ptr::addr_of_mut!(next_process.psp) as u32, current_psp_addr);
+
+                __context_switch(ptr::addr_of_mut!(next_process.psp) as u32, psp_current_addr);
+
                 Ok(())
             } else {
                 return Err(ProcessesError::NotInitialized);
@@ -134,6 +124,19 @@ impl Processes {
         } else {
             return Err(ProcessesError::ProcessNotAvailable);
         }
+    }
+
+
+    /// The current process frame is either [Some] [ProcessState::Initialized] [ProcessFrame] or [None] when no process was ever running.
+    fn get_current_process(&self) -> Option<&ProcessFrame> {
+        if let Some(current_process_idx) = self.current_process_idx {
+            if let ProcessState::Initialized(current_process) =
+                self.processes.get(current_process_idx).unwrap()
+            {
+                return Some(current_process);
+            }
+        }
+        None
     }
 }
 
