@@ -145,8 +145,8 @@ impl Processes {
     /// The current process frame is either [Some] [ProcessState::Initialized] [ProcessFrame] or [None] when no process was ever running.
     fn get_current_process(&self) -> Option<&ProcessFrame> {
         if let Some(current_process_idx) = self.current_process_idx {
-            if let ProcessState::Initialized(current_process) =
-                self.processes.get(current_process_idx).unwrap()
+            if let ProcessState::Initialized(ref current_process) =
+                self.processes[current_process_idx]
             {
                 return Some(current_process);
             }
