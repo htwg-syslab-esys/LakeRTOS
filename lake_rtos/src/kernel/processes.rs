@@ -26,7 +26,7 @@
 
 use core::ptr;
 
-use super::{__context_switch, PROCESSES_OFFSET_STRUCT, PROCESS_BASE};
+use super::{__context_switch, PROCESSES, PROCESS_BASE};
 
 /// Maximum allowed processes
 const ALLOWED_PROCESSES: usize = 4;
@@ -46,7 +46,7 @@ pub enum ProcessesError {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ProcessState {
     Uninitialized,
-    Initialized(ProcessFrame),
+    Initialized(ProcessControlBlock),
 }
 
 #[derive(Debug)]
@@ -59,14 +59,14 @@ impl Processes {
     /// Only the first call will return an reference to Some([Processes])
     pub fn take() -> Option<&'static mut Processes> {
         unsafe {
-            match PROCESSES_OFFSET_STRUCT {
+            match PROCESSES {
                 Some(_) => None,
                 None => {
-                    PROCESSES_OFFSET_STRUCT = Some(Processes {
+                    PROCESSES = Some(Processes {
                         processes: [ProcessState::Uninitialized; ALLOWED_PROCESSES],
                         current_process_idx: None,
                     });
-                    Some(PROCESSES_OFFSET_STRUCT.as_mut().unwrap())
+                    Some(PROCESSES.as_mut().unwrap())
                 }
             }
         }
@@ -92,7 +92,7 @@ impl Processes {
             let auto_stack_addr = ptr::addr_of_mut!(init_stack_frame.auto_stack.r0);
 
             *empty_slot =
-                ProcessState::Initialized(ProcessFrame::init(pid, auto_stack_addr as u32));
+                ProcessState::Initialized(ProcessControlBlock::init(pid, auto_stack_addr as u32));
 
             Ok(pid)
         } else {
@@ -122,14 +122,14 @@ impl Processes {
         };
 
         let psp_next_addr = match next_process {
-            ProcessState::Initialized(mut next_process) => {
-                ptr::addr_of_mut!(next_process.psp) as u32
+            ProcessState::Initialized(mut next_pcb) => {
+                ptr::addr_of_mut!(next_pcb.psp) as u32
             }
             _ => return Err(ProcessesError::NotInitialized),
         };
 
         let psp_current_addr = match self.get_current_process() {
-            Some(current_process) => ptr::addr_of!(current_process.psp) as u32,
+            Some(current_pcb) => ptr::addr_of!(current_pcb.psp) as u32,
             None => 0,
         };
 
@@ -143,12 +143,12 @@ impl Processes {
     }
 
     /// The current process frame is either [Some] [ProcessState::Initialized] [ProcessFrame] or [None] when no process was ever running.
-    fn get_current_process(&self) -> Option<&ProcessFrame> {
+    fn get_current_process(&self) -> Option<&ProcessControlBlock> {
         if let Some(current_process_idx) = self.current_process_idx {
-            if let ProcessState::Initialized(ref current_process) =
+            if let ProcessState::Initialized(ref current_pcb) =
                 self.processes[current_process_idx]
             {
-                return Some(current_process);
+                return Some(current_pcb);
             }
         }
         None
@@ -157,14 +157,14 @@ impl Processes {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ProcessFrame {
+pub struct ProcessControlBlock {
     psp: u32,
     pid: usize,
 }
 
-impl ProcessFrame {
-    pub fn init(pid: usize, psp: u32) -> ProcessFrame {
-        ProcessFrame { pid, psp }
+impl ProcessControlBlock {
+    pub fn init(pid: usize, psp: u32) -> ProcessControlBlock {
+        ProcessControlBlock { pid, psp }
     }
 }
 
