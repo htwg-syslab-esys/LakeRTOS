@@ -24,7 +24,7 @@
 //!
 //! A process has 4K memory available.
 
-use core::ptr::{self};
+use core::ptr;
 
 use super::{__context_switch, PROCESSES_OFFSET_STRUCT, PROCESS_BASE};
 
@@ -60,7 +60,7 @@ impl Processes {
     pub fn take() -> Option<&'static mut Processes> {
         unsafe {
             match PROCESSES_OFFSET_STRUCT {
-                Some(_) => return None,
+                Some(_) => None,
                 None => {
                     PROCESSES_OFFSET_STRUCT = Some(Processes {
                         processes: [ProcessState::Uninitialized; ALLOWED_PROCESSES],
