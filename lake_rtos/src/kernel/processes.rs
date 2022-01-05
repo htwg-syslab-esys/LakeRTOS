@@ -26,14 +26,12 @@
 
 use core::ptr::{self};
 
-use super::{__context_switch, PROCESS_BASE};
+use super::{__context_switch, PROCESSES_OFFSET_STRUCT, PROCESS_BASE};
 
 /// Maximum allowed processes
 const ALLOWED_PROCESSES: usize = 4;
 /// The reserved memory for a process. This does not protect against memory overflow.
 const PROCESS_MEMORY_SIZE: u32 = 0x1000;
-
-static mut PROCESS_OFFSET_TABLE: Option<Processes> = None;
 
 #[derive(Debug)]
 pub enum ProcessesError {
@@ -58,23 +56,23 @@ pub struct Processes {
 }
 
 impl Processes {
-    /// Only the first call will return Ok([Processes])
-    pub fn take() -> Result<&'static mut Option<Processes>, ()> {
+    /// Only the first call will return an reference to Some([Processes])
+    pub fn take() -> Option<&'static mut Processes> {
         unsafe {
-            match PROCESS_OFFSET_TABLE {
-                Some(_) => return Err(()),
+            match PROCESSES_OFFSET_STRUCT {
+                Some(_) => return None,
                 None => {
-                    PROCESS_OFFSET_TABLE = Some(Processes {
+                    PROCESSES_OFFSET_STRUCT = Some(Processes {
                         processes: [ProcessState::Uninitialized; ALLOWED_PROCESSES],
                         current_process_idx: None,
                     });
-                    Ok(&mut PROCESS_OFFSET_TABLE)
+                    Some(PROCESSES_OFFSET_STRUCT.as_mut().unwrap())
                 }
             }
         }
     }
 
-    pub fn create(&mut self, init_fn: fn() -> !) -> Result<usize, ProcessesError> {
+    pub fn create_process(&mut self, init_fn: fn() -> !) -> Result<usize, ProcessesError> {
         if let Some((pid, empty_slot)) = self
             .processes
             .iter_mut()
@@ -118,25 +116,30 @@ impl Processes {
     /// When switching from msp, that is current_process_idx is [None], the argument
     /// in [__context_switch] from_psp_addr can be 0, because it will not be used.
     pub fn switch_to_pid(&mut self, pid: usize) -> Result<(), ProcessesError> {
-        if let Some(process) = self.processes.get(pid) {
-            if let ProcessState::Initialized(mut next_process) = process {
-                let psp_current_addr = match self.get_current_process() {
-                    Some(current_process) => ptr::addr_of!(current_process.psp) as u32,
-                    None => 0,
-                };
-                self.current_process_idx = Some(pid);
+        let next_process = match self.processes.get(pid) {
+            Some(process) => process,
+            None => return Err(ProcessesError::ProcessNotAvailable),
+        };
 
-                unsafe {
-                    __context_switch(ptr::addr_of_mut!(next_process.psp) as u32, psp_current_addr);
-                }
-
-                Ok(())
-            } else {
-                return Err(ProcessesError::NotInitialized);
+        let psp_next_addr = match next_process {
+            ProcessState::Initialized(mut next_process) => {
+                ptr::addr_of_mut!(next_process.psp) as u32
             }
-        } else {
-            return Err(ProcessesError::ProcessNotAvailable);
+            _ => return Err(ProcessesError::NotInitialized),
+        };
+
+        let psp_current_addr = match self.get_current_process() {
+            Some(current_process) => ptr::addr_of!(current_process.psp) as u32,
+            None => 0,
+        };
+
+        self.current_process_idx = Some(pid);
+
+        unsafe {
+            __context_switch(psp_next_addr, psp_current_addr);
         }
+
+        Ok(())
     }
 
     /// The current process frame is either [Some] [ProcessState::Initialized] [ProcessFrame] or [None] when no process was ever running.

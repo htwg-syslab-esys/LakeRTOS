@@ -25,20 +25,19 @@ use kernel::processes::Processes;
 static mut LEDS: Option<LEDs> = None;
 /// Boolean flag for countdown timer
 static mut COUNTDOWN_FLAG: bool = false;
-/// Static mutable reference hook for Processes (for demonstration purposes)
+/// Static mutable as hook to a mutable reference of [Processes] (for demonstration purposes)
 static mut PROCESSES: Option<&mut Processes> = None;
 
 const LED_DEMO_CLOSURE: fn(usize, led: fn(&mut LEDs)) -> ! =
     |pid_next: usize, led: fn(&mut LEDs)| unsafe {
         loop {
             if COUNTDOWN_FLAG {
-                if let Some(leds) = &mut LEDS {
-                    led(leds)
-                }
+                led(LEDS.as_mut().unwrap());
+
                 COUNTDOWN_FLAG = false;
-                if let Some(processes) = &mut PROCESSES {
-                    processes.switch_to_pid(pid_next).unwrap();
-                }
+
+                let p = PROCESSES.as_mut().unwrap();
+                p.switch_to_pid(pid_next).unwrap();
             }
         }
     };
@@ -71,18 +70,15 @@ fn kmain() -> ! {
 
     unsafe {
         LEDS = Some(leds);
-
-        if let Ok(process_option) = Processes::take() {
-            if let Some(processes) = process_option {
-                PROCESSES = Some(processes);
-            }
-        }
     };
 
-    if let Some(p) = unsafe { &mut PROCESSES } {
-        p.create(user_task_led_on).unwrap();
-        p.create(user_task_led_off).unwrap();
-        p.switch_to_pid(0).unwrap();
+    let p = Processes::take().unwrap();
+    p.create_process(user_task_led_on).unwrap();
+    p.create_process(user_task_led_off).unwrap();
+
+    unsafe {
+        PROCESSES = Some(p);
+        PROCESSES.as_mut().unwrap().switch_to_pid(0).unwrap();
     }
 
     loop {}

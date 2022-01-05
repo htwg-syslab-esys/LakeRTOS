@@ -1,5 +1,5 @@
 //! # Lake RTOS runtime
-//! 
+//!
 //! Contains the first entrypoint for startup procedure.
 //! Only for runtime purposes, acts as a platform for the kernel
 //! code build on top of it.
@@ -9,7 +9,6 @@
 
 use core::{panic::PanicInfo, ptr};
 
-///
 /// Mandatory resetfunction at adress 0x08000004.
 /// Gets called after power on the cpu.
 ///
@@ -35,18 +34,16 @@ pub unsafe extern "C" fn Reset() -> ! {
     extern "Rust" {
         fn kmain() -> !;
     }
-    
+
     kmain();
 }
 
-///
-/// Manually create a section with points to the adress of 
+/// Manually create a section with points to the address of
 /// the reset function.
 ///
 #[link_section = ".vector_table.reset_vector"]
 #[no_mangle]
 pub static RESET_VECTOR: unsafe extern "C" fn() -> ! = Reset;
-
 
 #[panic_handler]
 fn panic(_panic: &PanicInfo<'_>) -> ! {
@@ -75,7 +72,9 @@ pub static EXCEPTIONS: [Vector; 14] = [
     Vector { handler: HardFault },
     Vector { handler: MemManage },
     Vector { handler: BusFault },
-    Vector { handler: UsageFault },
+    Vector {
+        handler: UsageFault,
+    },
     Vector { reserved: 0 },
     Vector { reserved: 0 },
     Vector { reserved: 0 },
@@ -87,9 +86,8 @@ pub static EXCEPTIONS: [Vector; 14] = [
     Vector { handler: SysTick },
 ];
 
-// Exceptions that have not been assigned a handler by the end user will make use of this default handler.
+/// Exceptions that have not been assigned a handler by the end user will make use of this default handler.
 #[no_mangle]
 pub extern "C" fn DefaultExceptionHandler() {
     loop {}
 }
-
