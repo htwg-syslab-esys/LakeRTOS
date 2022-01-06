@@ -1,4 +1,4 @@
-//! # Processes
+//! # Scheduler
 //!
 //! Processes will be placed top of SRAM
 //!
@@ -24,9 +24,9 @@
 //!
 //! A process has 4K memory available.
 
-use core::ptr;
+use core::{iter::Cycle, ops::Range, ptr};
 
-use super::{__context_switch, PROCESSES, PROCESS_BASE};
+use super::{__context_switch, exceptions::trigger_PendSV, PROCESS_BASE, SCHEDULER};
 
 /// Maximum allowed processes
 const ALLOWED_PROCESSES: usize = 4;
@@ -50,23 +50,25 @@ pub enum ProcessState {
 }
 
 #[derive(Debug)]
-pub struct Processes {
+pub struct Scheduler {
     processes: [Option<ProcessControlBlock>; ALLOWED_PROCESSES],
     current_process_idx: Option<usize>,
+    cycle: Cycle<Range<usize>>,
 }
 
-impl Processes {
+impl Scheduler {
     /// Only the first call will return an reference to Some([Processes])
-    pub fn take() -> Option<&'static mut Processes> {
+    pub fn take() -> Option<&'static mut Scheduler> {
         unsafe {
-            match PROCESSES {
+            match SCHEDULER {
                 Some(_) => None,
                 None => {
-                    PROCESSES = Some(Processes {
+                    SCHEDULER = Some(Scheduler {
                         processes: [None; ALLOWED_PROCESSES],
                         current_process_idx: None,
+                        cycle: (0..ALLOWED_PROCESSES).cycle(),
                     });
-                    Some(PROCESSES.as_mut().unwrap())
+                    Some(SCHEDULER.as_mut().unwrap())
                 }
             }
         }
@@ -118,14 +120,14 @@ impl Processes {
     ///
     /// When switching from msp, that is current_process_idx is [None], the argument
     /// in [__context_switch] from_psp_addr can be 0, because it will not be used.
-    pub fn switch_to_pid(&mut self, pid: usize) -> Result<(), ProcessesError> {
-        let next_process = match self.processes.get(pid) {
+    fn switch_to_pid(&mut self, pid: usize) -> Result<(), ProcessesError> {
+        let next_process = match self.processes.get_mut(pid) {
             Some(process) => process,
             None => return Err(ProcessesError::NotAvailable),
         };
 
         let psp_next_addr = match next_process {
-            Some(mut next_pcb) => {
+            Some(ref mut next_pcb) => {
                 next_pcb.state = ProcessState::Running;
                 ptr::addr_of_mut!(next_pcb.psp) as u32
             }
@@ -157,6 +159,21 @@ impl Processes {
             }
         }
         None
+    }
+
+    pub fn start_scheduling(&mut self) -> ! {
+        trigger_PendSV();
+        loop {}
+    }
+
+    pub fn schedule(&mut self) {
+        loop {
+            if let Some(pid) = self.cycle.next() {
+                if let Ok(()) = self.switch_to_pid(pid) {
+                    return;
+                }
+            }
+        }
     }
 }
 

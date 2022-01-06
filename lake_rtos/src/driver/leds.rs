@@ -77,19 +77,22 @@ impl LEDs {
     }
 
     /// Turns the LED on. If necessary, initializes the led.
-    pub fn on(&mut self, led: CardinalPoints) {
+    pub fn on(&mut self, led: CardinalPoints) -> &mut LEDs {
         self.check_init(led);
         self.gpio.odr.set_bit(led as u32);
+        self
     }
 
     /// Turns the LED off.
-    pub fn off(&mut self, led: CardinalPoints) {
+    pub fn off(&mut self, led: CardinalPoints) -> &mut LEDs {
         self.gpio.odr.clear_bit(led as u32);
+        self
     }
 
     /// Toggles the led. If necessary, initializes the led.
-    pub fn toggle(&mut self, led: CardinalPoints) {
+    pub fn toggle(&mut self, led: CardinalPoints) -> &mut LEDs {
         self.check_init(led);
         self.gpio.odr.flip_bits(led as u32, 1);
+        self
     }
 }

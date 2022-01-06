@@ -19,35 +19,30 @@ use dp::{
     DevicePeripherals,
 };
 use driver::leds::{CardinalPoints::*, LEDs};
-use kernel::processes::Processes;
+use kernel::scheduler::Scheduler;
 
 /// LEDs hook for exceptions
 static mut LEDS: Option<LEDs> = None;
-/// Boolean flag for countdown timer
-static mut COUNTDOWN_FLAG: bool = false;
-/// Static mutable as hook to a mutable reference of [Processes] (for demonstration purposes)
-static mut PROCESSES_HOOK: Option<&mut Processes> = None;
 
-const LED_DEMO_CLOSURE: fn(usize, led: fn(&mut LEDs)) -> ! =
-    |pid_next: usize, led: fn(&mut LEDs)| unsafe {
-        loop {
-            if COUNTDOWN_FLAG {
-                led(LEDS.as_mut().unwrap());
-
-                COUNTDOWN_FLAG = false;
-
-                let p = PROCESSES_HOOK.as_mut().unwrap();
-                p.switch_to_pid(pid_next).unwrap();
-            }
-        }
-    };
+const LED_DEMO_CLOSURE: fn(led: fn(&mut LEDs)) -> ! = |led| unsafe {
+    let leds = LEDS.as_mut().unwrap();
+    loop {
+        led(leds);
+    }
+};
 
 fn user_task_led_on() -> ! {
-    LED_DEMO_CLOSURE(1, |led| led.on(North))
+    LED_DEMO_CLOSURE(|led| {
+        led.on(North).on(South);
+        led.off(West).off(East);
+    })
 }
 
 fn user_task_led_off() -> ! {
-    LED_DEMO_CLOSURE(0, |led| led.off(North))
+    LED_DEMO_CLOSURE(|led| {
+        led.on(West).on(East);
+        led.off(North).off(South);
+    })
 }
 
 /// Kernel main
@@ -72,14 +67,8 @@ fn kmain() -> ! {
         LEDS = Some(leds);
     };
 
-    let p = Processes::take().unwrap();
+    let p = Scheduler::take().unwrap();
     p.create_process(user_task_led_on).unwrap();
     p.create_process(user_task_led_off).unwrap();
-
-    unsafe {
-        PROCESSES_HOOK = Some(p);
-        PROCESSES_HOOK.as_mut().unwrap().switch_to_pid(0).unwrap();
-    }
-
-    loop {}
+    p.start_scheduling()
 }
