@@ -40,18 +40,18 @@ pub enum ProcessesError {
     /// Process was not initialized.
     NotInitialized,
     /// Process is not available. (Index out of Bounds)
-    ProcessNotAvailable,
+    NotAvailable,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ProcessState {
-    Uninitialized,
-    Initialized(ProcessControlBlock),
+    Ready,
+    Running,
 }
 
 #[derive(Debug)]
 pub struct Processes {
-    processes: [ProcessState; ALLOWED_PROCESSES],
+    processes: [Option<ProcessControlBlock>; ALLOWED_PROCESSES],
     current_process_idx: Option<usize>,
 }
 
@@ -63,7 +63,7 @@ impl Processes {
                 Some(_) => None,
                 None => {
                     PROCESSES = Some(Processes {
-                        processes: [ProcessState::Uninitialized; ALLOWED_PROCESSES],
+                        processes: [None; ALLOWED_PROCESSES],
                         current_process_idx: None,
                     });
                     Some(PROCESSES.as_mut().unwrap())
@@ -77,7 +77,7 @@ impl Processes {
             .processes
             .iter_mut()
             .enumerate()
-            .find(|(_, &mut process_frame)| process_frame == ProcessState::Uninitialized)
+            .find(|(_, &mut process_frame)| process_frame.is_none())
         {
             let init_stack_frame = unsafe {
                 &mut *((PROCESS_BASE - (pid as u32 * PROCESS_MEMORY_SIZE))
@@ -91,8 +91,11 @@ impl Processes {
 
             let auto_stack_addr = ptr::addr_of_mut!(init_stack_frame.auto_stack.r0);
 
-            *empty_slot =
-                ProcessState::Initialized(ProcessControlBlock::init(pid, auto_stack_addr as u32));
+            *empty_slot = Some(ProcessControlBlock::init(
+                pid,
+                auto_stack_addr as u32,
+                ProcessState::Ready,
+            ));
 
             Ok(pid)
         } else {
@@ -118,18 +121,22 @@ impl Processes {
     pub fn switch_to_pid(&mut self, pid: usize) -> Result<(), ProcessesError> {
         let next_process = match self.processes.get(pid) {
             Some(process) => process,
-            None => return Err(ProcessesError::ProcessNotAvailable),
+            None => return Err(ProcessesError::NotAvailable),
         };
 
         let psp_next_addr = match next_process {
-            ProcessState::Initialized(mut next_pcb) => {
+            Some(mut next_pcb) => {
+                next_pcb.state = ProcessState::Running;
                 ptr::addr_of_mut!(next_pcb.psp) as u32
             }
-            _ => return Err(ProcessesError::NotInitialized),
+            None => return Err(ProcessesError::NotInitialized),
         };
 
         let psp_current_addr = match self.get_current_process() {
-            Some(current_pcb) => ptr::addr_of!(current_pcb.psp) as u32,
+            Some(mut current_pcb) => {
+                current_pcb.state = ProcessState::Ready;
+                ptr::addr_of!(current_pcb.psp) as u32
+            }
             None => 0,
         };
 
@@ -143,11 +150,9 @@ impl Processes {
     }
 
     /// The current process frame is either [Some] [ProcessState::Initialized] [ProcessFrame] or [None] when no process was ever running.
-    fn get_current_process(&self) -> Option<&ProcessControlBlock> {
+    fn get_current_process(&mut self) -> Option<&mut ProcessControlBlock> {
         if let Some(current_process_idx) = self.current_process_idx {
-            if let ProcessState::Initialized(ref current_pcb) =
-                self.processes[current_process_idx]
-            {
+            if let Some(ref mut current_pcb) = self.processes[current_process_idx] {
                 return Some(current_pcb);
             }
         }
@@ -160,11 +165,12 @@ impl Processes {
 pub struct ProcessControlBlock {
     psp: u32,
     pid: usize,
+    state: ProcessState,
 }
 
 impl ProcessControlBlock {
-    pub fn init(pid: usize, psp: u32) -> ProcessControlBlock {
-        ProcessControlBlock { pid, psp }
+    pub fn init(pid: usize, psp: u32, state: ProcessState) -> ProcessControlBlock {
+        ProcessControlBlock { pid, psp, state }
     }
 }
 
