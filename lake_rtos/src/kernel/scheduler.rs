@@ -79,7 +79,7 @@ impl Scheduler {
             .processes
             .iter_mut()
             .enumerate()
-            .find(|(_, &mut process_frame)| process_frame.is_none())
+            .find(|(_, process_frame)| process_frame.is_none())
         {
             let init_stack_frame = unsafe {
                 &mut *((PROCESS_BASE - (pid as u32 * PROCESS_MEMORY_SIZE))
@@ -127,7 +127,7 @@ impl Scheduler {
         };
 
         let psp_next_addr = match next_process {
-            Some(ref mut next_pcb) => {
+            Some(next_pcb) => {
                 next_pcb.state = ProcessState::Running;
                 ptr::addr_of_mut!(next_pcb.psp) as u32
             }
