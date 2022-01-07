@@ -7,7 +7,7 @@ pub mod scheduler;
 mod cs;
 
 /// Starting address of processes (processes are stacked descending)
-const PROCESS_BASE: u32 = 0x2000_8000;
+const PROCESS_BASE: u32 = 0x2000_6000;
 
 static mut CONTEXT_SWITCH: cs::ContextSwitch = cs::ContextSwitch {
     psp_from_addr: 0,

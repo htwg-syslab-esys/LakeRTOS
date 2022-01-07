@@ -28,22 +28,35 @@ const LED_DEMO_CLOSURE: fn(led: fn(&mut LEDs)) -> ! = |led| unsafe {
     let leds = LEDS.as_mut().unwrap();
     loop {
         led(leds);
+        leds.all_off();
     }
 };
 
 /// pid1
-fn user_task_led_on() -> ! {
+fn user_task_led_vertical() -> ! {
     LED_DEMO_CLOSURE(|led| {
         led.on(North).on(South);
-        led.off(West).off(East);
     })
 }
 
 /// pid2
-fn user_task_led_off() -> ! {
+fn user_task_led_diagonally_right() -> ! {
+    LED_DEMO_CLOSURE(|led| {
+        led.on(NorthWest).on(SouthEast);
+    })
+}
+
+/// pid3
+fn user_task_led_horizontal() -> ! {
     LED_DEMO_CLOSURE(|led| {
         led.on(West).on(East);
-        led.off(North).off(South);
+    })
+}
+
+/// pid4
+fn user_task_led_diagonally_left() -> ! {
+    LED_DEMO_CLOSURE(|led| {
+        led.on(NorthEast).on(SouthWest);
     })
 }
 
@@ -58,19 +71,17 @@ fn kmain() -> ! {
     let gpioe: &mut GPIO = bus.ahb2().gpioe();
     let leds: LEDs = LEDs::new(gpioe);
 
-    let cp = CorePeripherals::take().unwrap();
-    cp.stk
-        .set_reload(0x3FFFF)
-        .clear_val()
-        .tickint(true)
-        .enable();
+    let mut cp = CorePeripherals::take().unwrap();
+    let system_timer = cp.take_system_timer().unwrap();
 
     unsafe {
         LEDS = Some(leds);
     };
 
-    let mut p = Scheduler::init().unwrap();
-    p.create_process(user_task_led_on).unwrap();
-    p.create_process(user_task_led_off).unwrap();
+    let mut p = Scheduler::init(system_timer).unwrap();
+    p.create_process(user_task_led_vertical).unwrap();
+    p.create_process(user_task_led_diagonally_right).unwrap();
+    p.create_process(user_task_led_horizontal).unwrap();
+    p.create_process(user_task_led_diagonally_left).unwrap();
     p.start_scheduling()
 }

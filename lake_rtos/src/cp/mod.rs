@@ -1,5 +1,7 @@
 //! # Core Peripherals
-mod stk;
+pub mod stk;
+
+use core::mem::replace;
 
 use self::stk::SystemTimer;
 
@@ -10,7 +12,7 @@ static mut TAKEN: bool = false;
 
 /// Contains the core peripherals. Unlike device peripherals there is no bus interface.
 pub struct CorePeripherals {
-    pub stk: SystemTimer,
+    stk: Option<SystemTimer>,
 }
 
 impl CorePeripherals {
@@ -22,11 +24,20 @@ impl CorePeripherals {
         }
     }
 
-    pub unsafe fn steal() -> Self {
+    unsafe fn steal() -> Self {
         TAKEN = true;
 
         CorePeripherals {
-            stk: SystemTimer::init(),
+            stk: Some(SystemTimer::init()),
+        }
+    }
+
+    /// Singleton pattern
+    pub fn take_system_timer(&mut self) -> Option<SystemTimer> {
+        if let Some(_) = self.stk {
+            replace(&mut self.stk, None)
+        } else {
+            None
         }
     }
 }

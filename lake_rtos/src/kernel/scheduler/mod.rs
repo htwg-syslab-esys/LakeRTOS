@@ -27,12 +27,14 @@
 mod policies;
 
 use self::policies::{Policy, SchedulerPolicy};
-
-use super::{exceptions::trigger_PendSV, PROCESS_BASE};
+use crate::{
+    kernel::{exceptions::trigger_PendSV, PROCESS_BASE},
+    cp::stk::SystemTimer
+};
 use core::ptr;
 
 /// Maximum allowed processes
-const ALLOWED_PROCESSES: usize = 4;
+const ALLOWED_PROCESSES: usize = 5;
 /// The reserved memory for a process. This does not protect against memory overflow.
 const PROCESS_MEMORY_SIZE: u32 = 0x1000;
 
@@ -60,7 +62,7 @@ pub enum ProcessState {
 
 /// This is process 0 (pid0)
 fn scheduler_task() -> ! {
-    let policy = Policy::init();
+    let policy = Policy::init(unsafe { SCHEDULER.as_mut().unwrap() });
     policy.schedule()
 }
 
@@ -69,21 +71,24 @@ pub struct Scheduler {
     processes: [Option<ProcessControlBlock>; ALLOWED_PROCESSES],
     policy: SchedulerPolicy,
     current_pid: Option<usize>,
+    system_timer: SystemTimer,
 }
 
 impl Scheduler {
     /// Only the first call will return an reference to Some([Scheduler])
-    pub fn init() -> Option<Scheduler> {
+    pub fn init(mut system_timer: SystemTimer) -> Option<Scheduler> {
         if unsafe { TAKEN } {
             None
         } else {
             unsafe {
                 TAKEN = true;
             }
+            system_timer.set_reload(0x3FFFF);
             let mut scheduler = Scheduler {
                 processes: [None; ALLOWED_PROCESSES],
                 policy: SchedulerPolicy::RoundRobin,
                 current_pid: None,
+                system_timer,
             };
             scheduler.create_process(scheduler_task).unwrap();
             Some(scheduler)

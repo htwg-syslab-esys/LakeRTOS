@@ -9,6 +9,7 @@
 use core::ptr::{read_volatile, write_volatile};
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct Register {
     register: u32,
 }

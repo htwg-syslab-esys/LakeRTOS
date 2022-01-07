@@ -8,6 +8,7 @@ use super::SYSTICK_TIMER;
 
 /// System Timers registers
 #[repr(C)]
+#[derive(Debug)]
 struct Systick {
     /// Control and status register (RW)
     stk_ctrl: Register,
@@ -27,12 +28,13 @@ struct Systick {
 /// 1. Program reload value.
 /// 2. Clear current value.
 /// 3. Program Control and Status register.
+#[derive(Debug)]
 pub struct SystemTimer {
     p: &'static mut Systick,
 }
 
 impl SystemTimer {
-    pub fn init() -> SystemTimer {
+    pub(super) fn init() -> SystemTimer {
         SystemTimer {
             p: unsafe { &mut *(SYSTICK_TIMER as *mut Systick) },
         }
@@ -63,7 +65,7 @@ impl SystemTimer {
     /// # Returns
     /// * `None`
     ///
-    pub fn set_reload(self, load: u32) -> SystemTimer {
+    pub fn set_reload(&mut self, load: u32) -> &mut SystemTimer {
         if load <= 0x00FFFFFF {
             self.p.stk_load.replace_bits(0, load, 31);
         }
@@ -72,7 +74,7 @@ impl SystemTimer {
 
     /// Any write to the register will clear the field to 0 and sets the COUNTFLAG
     /// in STK_CTRL register to 0.
-    pub fn clear_val(self) -> SystemTimer {
+    pub fn clear_val(&mut self) -> &mut SystemTimer {
         self.p.stk_val.set_bit(0);
         self
     }
@@ -80,13 +82,13 @@ impl SystemTimer {
     /// SysTick exception request enable.
     /// Setting bit to *1* requests the SysTick Interrupt when the STK_LOAD Register
     /// reaches 0.
-    pub fn tickint(self, enable: bool) -> SystemTimer {
+    pub fn tickint(&mut self, enable: bool) -> &mut SystemTimer {
         self.p.stk_ctrl.replace_bits(1, enable as u32, 1);
         self
     }
 
     /// Enables the counter by setting `Bit 0 ENABLE: Counter enable`
-    pub fn enable(self) -> SystemTimer {
+    pub fn enable(&mut self) -> &mut SystemTimer {
         self.p.stk_ctrl.set_bit(0);
         self
     }

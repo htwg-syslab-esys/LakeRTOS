@@ -32,6 +32,9 @@
 //!
 //! [Reference Manual](https://www.st.com/resource/en/reference_manual/dm00043574-stm32f303xb-c-d-e-stm32f303x6-8-stm32f328x8-stm32f358xc-stm32f398xe-advanced-arm-based-mcus-stmicroelectronics.pdf)
 //! GPIO registers - Section 11.4
+use core::slice::Iter;
+
+use self::CardinalPoints::*;
 use crate::dp::gpio::GPIO;
 
 #[allow(dead_code)]
@@ -46,6 +49,15 @@ pub enum CardinalPoints {
     South,
     SouthWest,
     West,
+}
+
+impl CardinalPoints {
+    pub fn iterator() -> Iter<'static, CardinalPoints> {
+        static DIRECTIONS: [CardinalPoints; 8] = [
+            NorthWest, North, NorthEast, East, SouthEast, South, SouthWest, West,
+        ];
+        DIRECTIONS.iter()
+    }
 }
 
 /// Needs [GPIO] port E.
@@ -86,6 +98,13 @@ impl LEDs {
     /// Turns the LED off.
     pub fn off(&mut self, led: CardinalPoints) -> &mut LEDs {
         self.gpio.odr.clear_bit(led as u32);
+        self
+    }
+
+    pub fn all_off(&mut self) -> &mut LEDs {
+        CardinalPoints::iterator().for_each(|led| {
+            self.off(*led);
+        });
         self
     }
 
