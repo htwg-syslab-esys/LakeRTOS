@@ -15,7 +15,7 @@
 //! |     SRAM     |               | Process4 (psp4) | 0x2000_5000 - 0x2000_5FFF
 //! |              |
 //! |              |
-//! |              | <<<<<<<<<<<<< | Kernel stack (msp) |
+//! |              |
 //! |--------------| 0x2000_0000
 //! |--------------| 0x1FFF_FFFF
 //! |     Code     |
@@ -24,14 +24,21 @@
 //!
 //! A process has 4K memory available.
 
-use core::{iter::Cycle, ops::Range, ptr};
+mod policies;
 
-use super::{__context_switch, exceptions::trigger_PendSV, PROCESS_BASE, SCHEDULER};
+use self::policies::{Policy, SchedulerPolicy};
+
+use super::{exceptions::trigger_PendSV, PROCESS_BASE};
+use core::ptr;
 
 /// Maximum allowed processes
 const ALLOWED_PROCESSES: usize = 4;
 /// The reserved memory for a process. This does not protect against memory overflow.
 const PROCESS_MEMORY_SIZE: u32 = 0x1000;
+
+/// This [Option] of [Scheduler] is designed as singleton pattern.
+static mut SCHEDULER: Option<&mut Scheduler> = None;
+static mut TAKEN: bool = false;
 
 #[derive(Debug)]
 pub enum ProcessesError {
@@ -41,6 +48,8 @@ pub enum ProcessesError {
     NotInitialized,
     /// Process is not available. (Index out of Bounds)
     NotAvailable,
+    /// Process is already running
+    AlreadyRunning,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -49,29 +58,42 @@ pub enum ProcessState {
     Running,
 }
 
+/// This is process 0 (pid0)
+fn scheduler_task() -> ! {
+    let policy = Policy::init();
+    policy.schedule()
+}
+
 #[derive(Debug)]
 pub struct Scheduler {
     processes: [Option<ProcessControlBlock>; ALLOWED_PROCESSES],
-    current_process_idx: Option<usize>,
-    cycle: Cycle<Range<usize>>,
+    policy: SchedulerPolicy,
+    current_pid: Option<usize>,
 }
 
 impl Scheduler {
-    /// Only the first call will return an reference to Some([Processes])
-    pub fn take() -> Option<&'static mut Scheduler> {
-        unsafe {
-            match SCHEDULER {
-                Some(_) => None,
-                None => {
-                    SCHEDULER = Some(Scheduler {
-                        processes: [None; ALLOWED_PROCESSES],
-                        current_process_idx: None,
-                        cycle: (0..ALLOWED_PROCESSES).cycle(),
-                    });
-                    Some(SCHEDULER.as_mut().unwrap())
-                }
+    /// Only the first call will return an reference to Some([Scheduler])
+    pub fn init() -> Option<Scheduler> {
+        if unsafe { TAKEN } {
+            None
+        } else {
+            unsafe {
+                TAKEN = true;
             }
+            let mut scheduler = Scheduler {
+                processes: [None; ALLOWED_PROCESSES],
+                policy: SchedulerPolicy::RoundRobin,
+                current_pid: None,
+            };
+            scheduler.create_process(scheduler_task).unwrap();
+            Some(scheduler)
         }
+    }
+
+    pub fn start_scheduling(&mut self) -> ! {
+        unsafe { SCHEDULER = Some(&mut *(self as *mut Scheduler)) };
+        self.switch_to_pid(0).unwrap();
+        loop {}
     }
 
     pub fn create_process(&mut self, init_fn: fn() -> !) -> Result<usize, ProcessesError> {
@@ -105,7 +127,7 @@ impl Scheduler {
         }
     }
 
-    /// Prepares the context switch and then actually calls [__context_switch].
+    /// Prepares [super::cs::ContextSwitch] and then performs the context switch by enabling PendSV.
     ///
     /// # Arguments
     ///
@@ -115,11 +137,6 @@ impl Scheduler {
     ///
     /// * [Ok] when context switch was successful.
     /// * [ProcessesError] when context switch failed.
-    ///
-    /// *Note*
-    ///
-    /// When switching from msp, that is current_process_idx is [None], the argument
-    /// in [__context_switch] from_psp_addr can be 0, because it will not be used.
     fn switch_to_pid(&mut self, pid: usize) -> Result<(), ProcessesError> {
         let next_process = match self.processes.get_mut(pid) {
             Some(process) => process,
@@ -127,53 +144,30 @@ impl Scheduler {
         };
 
         let psp_next_addr = match next_process {
-            Some(next_pcb) => {
-                next_pcb.state = ProcessState::Running;
-                ptr::addr_of_mut!(next_pcb.psp) as u32
-            }
+            Some(next_pcb) => match next_pcb.state {
+                ProcessState::Ready => {
+                    next_pcb.state = ProcessState::Running;
+                    ptr::addr_of_mut!(next_pcb.psp) as u32
+                }
+                ProcessState::Running => return Err(ProcessesError::AlreadyRunning),
+            },
             None => return Err(ProcessesError::NotInitialized),
         };
 
-        let psp_current_addr = match self.get_current_process() {
-            Some(mut current_pcb) => {
-                current_pcb.state = ProcessState::Ready;
-                ptr::addr_of!(current_pcb.psp) as u32
-            }
-            None => 0,
-        };
-
-        self.current_process_idx = Some(pid);
-
         unsafe {
-            __context_switch(psp_next_addr, psp_current_addr);
+            super::CONTEXT_SWITCH.psp_next_addr = psp_next_addr;
         }
+
+        if let Some(current_pid) = self.current_pid {
+            if let Some(current_pcb) = self.processes.get_mut(current_pid).unwrap() {
+                current_pcb.state = ProcessState::Ready;
+            }
+        }
+        self.current_pid = Some(pid);
+
+        trigger_PendSV();
 
         Ok(())
-    }
-
-    /// The current process frame is either [Some] [ProcessState::Initialized] [ProcessFrame] or [None] when no process was ever running.
-    fn get_current_process(&mut self) -> Option<&mut ProcessControlBlock> {
-        if let Some(current_process_idx) = self.current_process_idx {
-            if let Some(ref mut current_pcb) = self.processes[current_process_idx] {
-                return Some(current_pcb);
-            }
-        }
-        None
-    }
-
-    pub fn start_scheduling(&mut self) -> ! {
-        trigger_PendSV();
-        loop {}
-    }
-
-    pub fn schedule(&mut self) {
-        loop {
-            if let Some(pid) = self.cycle.next() {
-                if let Ok(()) = self.switch_to_pid(pid) {
-                    return;
-                }
-            }
-        }
     }
 }
 

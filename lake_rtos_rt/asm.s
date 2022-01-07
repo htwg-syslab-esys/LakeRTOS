@@ -6,11 +6,11 @@
 __breakpoint:
     bkpt
     bx lr
-    
+
 .global __context_switch
 // r0 and r1 are holding the addresses of corresponding struct field psp
 // * r0: *psp next process
-// * r1: *psp current process (can be 0 when no process was initiated)
+// * r1: *psp from process (can be 0 when first switch to pid0)
 __context_switch:
     // Saves current process when r1 != 0
     mov r2, #0x0

@@ -19,7 +19,7 @@ use dp::{
     DevicePeripherals,
 };
 use driver::leds::{CardinalPoints::*, LEDs};
-use kernel::scheduler::Scheduler;
+use kernel::{scheduler::Scheduler, __breakpoint};
 
 /// LEDs hook for exceptions
 static mut LEDS: Option<LEDs> = None;
@@ -31,6 +31,7 @@ const LED_DEMO_CLOSURE: fn(led: fn(&mut LEDs)) -> ! = |led| unsafe {
     }
 };
 
+/// pid1
 fn user_task_led_on() -> ! {
     LED_DEMO_CLOSURE(|led| {
         led.on(North).on(South);
@@ -38,6 +39,7 @@ fn user_task_led_on() -> ! {
     })
 }
 
+/// pid2
 fn user_task_led_off() -> ! {
     LED_DEMO_CLOSURE(|led| {
         led.on(West).on(East);
@@ -48,6 +50,7 @@ fn user_task_led_off() -> ! {
 /// Kernel main
 #[no_mangle]
 fn kmain() -> ! {
+    unsafe { __breakpoint() };
     let bus: BusInterface = DevicePeripherals::take();
 
     let mut ahb1: AHB1 = bus.ahb1();
@@ -67,7 +70,7 @@ fn kmain() -> ! {
         LEDS = Some(leds);
     };
 
-    let p = Scheduler::take().unwrap();
+    let mut p = Scheduler::init().unwrap();
     p.create_process(user_task_led_on).unwrap();
     p.create_process(user_task_led_off).unwrap();
     p.start_scheduling()
