@@ -19,7 +19,7 @@ use dp::{
     DevicePeripherals,
 };
 use driver::leds::{CardinalPoints::*, LEDs};
-use kernel::{scheduler::Scheduler, __breakpoint};
+use kernel::scheduler::Scheduler;
 
 /// LEDs hook for exceptions
 static mut LEDS: Option<LEDs> = None;
@@ -50,7 +50,6 @@ fn user_task_led_off() -> ! {
 /// Kernel main
 #[no_mangle]
 fn kmain() -> ! {
-    unsafe { __breakpoint() };
     let bus: BusInterface = DevicePeripherals::take();
 
     let mut ahb1: AHB1 = bus.ahb1();
