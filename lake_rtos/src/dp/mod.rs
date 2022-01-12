@@ -3,10 +3,13 @@
 pub mod bus;
 pub mod gpio;
 pub mod rcc;
+pub mod uart;
 
 use self::bus::BusInterface;
 use core::mem::replace;
 
+const UART_BASE: u32 = 0x4001_3800;
+const GPIOA_BASE: u32 = 0x4800_0000;
 const GPIOE_BASE: u32 = 0x4800_1000;
 const RCC_BASE: u32 = 0x4002_1000;
 

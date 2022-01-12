@@ -19,6 +19,8 @@ use dp::{
     DevicePeripherals,
 };
 use driver::leds::{CardinalPoints::*, LEDs};
+use dp::uart::UART;
+use driver::usart1::{USART1, print_str};
 use kernel::scheduler::Scheduler;
 
 /// LEDs hook for exceptions
@@ -66,14 +68,17 @@ fn kmain() -> ! {
     let bus: BusInterface = DevicePeripherals::take();
 
     let mut ahb1: AHB1 = bus.ahb1();
-    ahb1.rcc(|rcc: &mut RCC| rcc.iopeen());
+    ahb1.rcc(|rcc: &mut RCC| rcc.iopeen().iopaen().usarten() );
 
     let gpioe: &mut GPIO = bus.ahb2().gpioe();
-    let leds: LEDs = LEDs::new(gpioe);
+    let gpioa: &mut GPIO = bus.ahb2().gpioa();
 
+    let leds: LEDs = LEDs::new(gpioe);
+    let uart = USART1::new(gpioa, 9600).init();
     let mut cp = CorePeripherals::take().unwrap();
     let system_timer = cp.take_system_timer().unwrap();
-
+    // uart.init();
+    print_str("servus\n\r");
     unsafe {
         LEDS = Some(leds);
     };

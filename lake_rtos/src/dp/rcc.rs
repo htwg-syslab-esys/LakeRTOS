@@ -30,4 +30,13 @@ impl RCC {
         self.ahbenr.set_bit(21);
         self
     }
+    /// Enables the clock on AHB Bus which is connected to gpio port a
+    pub fn iopaen(&mut self) -> &mut RCC {
+        self.ahbenr.set_bit(17);
+        self
+    }
+    pub fn usarten(&mut self) -> &mut RCC {
+        self.apb2enr.set_bit(14);
+        self
+    }
 }

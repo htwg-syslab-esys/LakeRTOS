@@ -1,5 +1,5 @@
 //! # Bus
-use super::{gpio::GPIO, rcc::RCC, GPIOE_BASE, RCC_BASE};
+use super::{gpio::GPIO, rcc::RCC, GPIOA_BASE, GPIOE_BASE, RCC_BASE};
 
 /// The AHB slave interface allows internal CPUs and other bus master peripherals to access
 /// the external memories.
@@ -13,6 +13,7 @@ impl BusInterface {
     }
     pub fn ahb2(&self) -> AHB2 {
         AHB2 {
+            gpioa: unsafe { &mut *(GPIOA_BASE as *mut GPIO) },
             gpioe: unsafe { &mut *(GPIOE_BASE as *mut GPIO) },
         }
     }
@@ -38,10 +39,14 @@ impl AHB1 {
 /// - [GPIO]
 pub struct AHB2 {
     gpioe: &'static mut GPIO,
+    gpioa: &'static mut GPIO,
 }
 
 impl AHB2 {
     pub fn gpioe(self) -> &'static mut GPIO {
         self.gpioe
+    }
+    pub fn gpioa(self) -> &'static mut GPIO {
+        self.gpioa
     }
 }
