@@ -20,7 +20,7 @@ use dp::{
 };
 use driver::leds::{CardinalPoints::*, LEDs};
 use dp::uart::UART;
-use driver::usart1::{USART1, print_str};
+use driver::usart1::{USART1, stdIo};
 use kernel::scheduler::Scheduler;
 
 /// LEDs hook for exceptions
@@ -77,8 +77,8 @@ fn kmain() -> ! {
     let uart = USART1::new(gpioa, 9600).init();
     let mut cp = CorePeripherals::take().unwrap();
     let system_timer = cp.take_system_timer().unwrap();
-    // uart.init();
-    print_str("servus\n\r");
+
+    "Hello from LakeRTOS\r\n".print();
     unsafe {
         LEDS = Some(leds);
     };

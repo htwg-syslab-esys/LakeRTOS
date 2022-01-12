@@ -1,6 +1,24 @@
 use crate::dp::gpio::GPIO;
 use crate::dp::uart::UART;
 
+pub trait stdIo {
+    fn print(&self);
+}
+
+impl stdIo for &str {
+    fn print(&self) {
+        let usart1_tdr = 0x4001_3800 | 0x28;
+        let usart1_isr = 0x4001_3800 | 0x1C;
+    
+        for c in self.chars() {
+            unsafe {
+                core::ptr::write_volatile(usart1_tdr as *mut u32, c as u32);
+                while !((core::ptr::read_volatile(usart1_isr as *const u32) & 0x80) != 0) {}
+            }
+        }
+    } 
+}
+
 pub struct USART1 {
     gpio: &'static mut GPIO,
     uart: &'static mut UART,
@@ -34,16 +52,5 @@ impl USART1 {
         self.uart.cr1.set_bit(3);
         self.uart.cr1.set_bit(0);
         self
-    }
-}
-pub fn print_str(msg: &str) {
-    let usart1_tdr = 0x4001_3800 | 0x28;
-    let usart1_isr = 0x4001_3800 | 0x1C;
-
-    for c in msg.chars() {
-        unsafe {
-            core::ptr::write_volatile(usart1_tdr as *mut u32, c as u32);
-            while !((core::ptr::read_volatile(usart1_isr as *const u32) & 0x80) != 0) {}
-        }
     }
 }
