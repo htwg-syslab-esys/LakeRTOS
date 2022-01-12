@@ -3,9 +3,11 @@ use crate::dp::uart::UART;
 
 const USART1_TDR: u32 = 0x4001_3828;
 const USART1_ISR: u32 = 0x4001_381C;
+const CRLF: &str = "\r\n";
 
 pub trait stdIo {
     fn print(&self);
+    fn println(&self);
 }
 
 impl stdIo for &str {
@@ -14,8 +16,17 @@ impl stdIo for &str {
             transmit(c as u32);
         }
     }
+    fn println(&self) {
+        for c in self.chars() {
+            transmit(c as u32);
+        }
+        for c in CRLF.chars() {
+            transmit(c as u32);
+        }
+    }
 }
 
+// redundancy gets removed soon
 impl stdIo for u32 {
     fn print(&self) {
         let mut buffer: [u8; 32] = unsafe { core::mem::zeroed() };
@@ -27,6 +38,22 @@ impl stdIo for u32 {
             cnt += 1;
         }
         for c in IntoIterator::into_iter(buffer).rev() {
+            transmit(c as u32);
+        }
+    }
+    fn println(&self) {
+        let mut buffer: [u8; 32] = unsafe { core::mem::zeroed() };
+        let mut cnt: u8 = 0;
+        let mut dec = *self;
+        while dec > 0 {
+            buffer[cnt as usize] = (dec % 10 + 0x30) as u8;
+            dec /= 10;
+            cnt += 1;
+        }
+        for c in IntoIterator::into_iter(buffer).rev() {
+            transmit(c as u32);
+        }
+        for c in CRLF.chars() {
             transmit(c as u32);
         }
     }

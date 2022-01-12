@@ -79,13 +79,13 @@ fn kmain() -> ! {
     let system_timer = cp.take_system_timer().unwrap();
 
     "Hello from LakeRTOS --- Year: ".print();
-    2022.print();
-    " \n\r".print();
+    2022.println();
 
     unsafe {
         LEDS = Some(leds);
     };
 
+    "lets go...".println();
     let mut p = Scheduler::init(system_timer).unwrap();
     p.create_process(user_task_led_vertical).unwrap();
     p.create_process(user_task_led_diagonally_right).unwrap();
