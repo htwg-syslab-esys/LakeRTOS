@@ -78,7 +78,10 @@ fn kmain() -> ! {
     let mut cp = CorePeripherals::take().unwrap();
     let system_timer = cp.take_system_timer().unwrap();
 
-    "Hello from LakeRTOS\r\n".print();
+    "Hello from LakeRTOS --- Year: ".print();
+    2022.print();
+    " \n\r".print();
+
     unsafe {
         LEDS = Some(leds);
     };

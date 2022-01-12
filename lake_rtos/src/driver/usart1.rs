@@ -1,22 +1,35 @@
 use crate::dp::gpio::GPIO;
 use crate::dp::uart::UART;
 
+const USART1_TDR: u32 = 0x4001_3828;
+const USART1_ISR: u32 = 0x4001_381C;
+
 pub trait stdIo {
     fn print(&self);
 }
 
 impl stdIo for &str {
     fn print(&self) {
-        let usart1_tdr = 0x4001_3800 | 0x28;
-        let usart1_isr = 0x4001_3800 | 0x1C;
-    
         for c in self.chars() {
-            unsafe {
-                core::ptr::write_volatile(usart1_tdr as *mut u32, c as u32);
-                while !((core::ptr::read_volatile(usart1_isr as *const u32) & 0x80) != 0) {}
-            }
+            transmit(c as u32);
         }
-    } 
+    }
+}
+
+impl stdIo for u32 {
+    fn print(&self) {
+        let mut buffer: [u8; 32] = unsafe { core::mem::zeroed() };
+        let mut cnt: u8 = 0;
+        let mut dec = *self;
+        while dec > 0 {
+            buffer[cnt as usize] = (dec % 10 + 0x30) as u8;
+            dec /= 10;
+            cnt += 1;
+        }
+        for c in IntoIterator::into_iter(buffer).rev() {
+            transmit(c as u32);
+        }
+    }
 }
 
 pub struct USART1 {
@@ -52,5 +65,12 @@ impl USART1 {
         self.uart.cr1.set_bit(3);
         self.uart.cr1.set_bit(0);
         self
+    }
+}
+
+fn transmit(c: u32) {
+    unsafe {
+        core::ptr::write_volatile(USART1_TDR as *mut u32, c);
+        while !((core::ptr::read_volatile(USART1_ISR as *const u32) & 0x80) != 0) {}
     }
 }
