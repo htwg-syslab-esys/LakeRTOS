@@ -5,12 +5,12 @@ const USART1_TDR: u32 = 0x4001_3828;
 const USART1_ISR: u32 = 0x4001_381C;
 const CRLF: &str = "\r\n";
 
-pub trait stdIo {
+pub trait iostream {
     fn print(&self);
     fn println(&self);
 }
 
-impl stdIo for &str {
+impl iostream for &str {
     fn print(&self) {
         for c in self.chars() {
             transmit(c as u32);
@@ -27,7 +27,7 @@ impl stdIo for &str {
 }
 
 // redundancy gets removed soon
-impl stdIo for u32 {
+impl iostream for u32 {
     fn print(&self) {
         let mut buffer: [u8; 32] = unsafe { core::mem::zeroed() };
         let mut cnt: u8 = 0;

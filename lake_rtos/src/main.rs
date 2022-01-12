@@ -20,7 +20,7 @@ use dp::{
 };
 use driver::leds::{CardinalPoints::*, LEDs};
 use dp::uart::UART;
-use driver::usart1::{USART1, stdIo};
+use driver::usart1::{USART1, iostream};
 use kernel::scheduler::Scheduler;
 
 /// LEDs hook for exceptions
