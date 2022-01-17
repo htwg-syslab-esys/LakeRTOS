@@ -6,6 +6,9 @@ use crate::util::register::Register;
 
 use super::SYSTICK_TIMER;
 
+/// Reload value maximum
+pub const STK_RELOAD_MAX: u32 = 0x00FFFFFF;
+
 /// System Timers registers
 #[repr(C)]
 #[derive(Debug)]
@@ -66,7 +69,7 @@ impl SystemTimer {
     /// * `None`
     ///
     pub fn set_reload(&mut self, load: u32) -> &mut SystemTimer {
-        if load <= 0x00FFFFFF {
+        if load <= STK_RELOAD_MAX {
             self.p.stk_load.replace_bits(0, load, 31);
         }
         self

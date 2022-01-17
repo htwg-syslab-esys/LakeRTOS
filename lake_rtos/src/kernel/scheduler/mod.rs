@@ -2,48 +2,63 @@
 //!
 //! Processes will be placed top of SRAM
 //!
-//! Memory layout
-//!
 //! ```text
-//! |     ...      |  
-//! |  Peripheral  |
-//! |--------------| 0x4000_0000  
-//! |--------------| 0x2000 9C40 (upper limit for our discovery board version)
-//! |              | <<<<<<<<<<<<< | Process1 (psp1) | 0x2000_8000 - 0x2000_8FFF
-//! |              |               | Process2 (psp2) | 0x2000_7000 - 0x2000_7FFF
-//! |              |               | Process3 (psp3) | 0x2000_6000 - 0x2000_6FFF
-//! |     SRAM     |               | Process4 (psp4) | 0x2000_5000 - 0x2000_5FFF
-//! |              |
-//! |              |
-//! |              |
-//! |--------------| 0x2000_0000
-//! |--------------| 0x1FFF_FFFF
-//! |     Code     |
-//! |     ...      |
+//!     Memory model
+//!   |     ...      |  
+//!   |  Peripheral  |
+//!   |--------------| 0x4000_0000
+//!   |     ...      |
+//!   |--------------| 0x2000 9C40 (upper limit for our discovery board version)
+//!   |              | <<<< msp <<<< | start main stack |
+//!   |              |
+//! | |              |
+//! | |              | <<<< psp <<<< | Process stack 0 (pid0) | 0x2000_6000
+//! | |     SRAM     |               | Process stack 1 (pid1) | 0x2000_5000
+//! v*|              |               | Process stack 2 (pid2) | 0x2000_4000
+//!   |              |               | Process stack 3 (pid3) | 0x2000_3000
+//!   |              |               | ...
+//!   |              |
+//!   |              | <<<<<<<<<<<<< | static variables |
+//!   |--------------| 0x2000_0000
+//!   |--------------| 0x1FFF_FFFF
+//!   |     Code     |
+//!   |     ...      |
+//!
+//! *full descending stack
+//!
+//! psp = process stack pointer
+//! msp = main stack pointer
 //! ```
 //!
-//! A process has 4K memory available.
+//! A process has 1K memory available.
 
-mod policies;
+pub mod policies;
 
-use self::policies::{Policy, SchedulerPolicy};
 use crate::{
-    kernel::{exceptions::trigger_PendSV, PROCESS_BASE},
-    cp::stk::SystemTimer
+    cp::stk::SystemTimer,
+    kernel::{
+        exceptions::trigger_PendSV,
+        scheduler::policies::{Policy, SchedulerPolicy},
+    },
 };
 use core::ptr;
 
+use super::CONTEXT_SWITCH;
+
 /// Maximum allowed processes
 const ALLOWED_PROCESSES: usize = 5;
+/// Starting address of processes (processes are stacked descending)
+const PROCESS_BASE: u32 = 0x2000_6000;
 /// The reserved memory for a process. This does not protect against memory overflow.
 const PROCESS_MEMORY_SIZE: u32 = 0x1000;
 
-/// This [Option] of [Scheduler] is designed as singleton pattern.
-static mut SCHEDULER: Option<&mut Scheduler> = None;
-static mut TAKEN: bool = false;
+/// This [Option] holds a reference to the [Scheduler].
+static mut SCHEDULER_REF: Option<&mut Scheduler> = None;
+/// This allows for the singleton pattern.
+static mut SCHEDULER_TAKEN: bool = false;
 
 #[derive(Debug)]
-pub enum ProcessesError {
+pub enum SchedulerError {
     /// Process stack is completely occupied.
     ProcessStackFull,
     /// Process was not initialized.
@@ -60,9 +75,10 @@ pub enum ProcessState {
     Running,
 }
 
-/// This is process 0 (pid0)
+/// This is process 0 (pid0). It is not intended to be called directly, but is
+/// initiated as a process by the [Scheduler] itself.
 fn scheduler_task() -> ! {
-    let policy = Policy::init(unsafe { SCHEDULER.as_mut().unwrap() });
+    let policy = Policy::init(unsafe { SCHEDULER_REF.as_mut().unwrap() });
     policy.schedule()
 }
 
@@ -76,32 +92,50 @@ pub struct Scheduler {
 
 impl Scheduler {
     /// Only the first call will return an reference to Some([Scheduler])
-    pub fn init(mut system_timer: SystemTimer) -> Option<Scheduler> {
-        if unsafe { TAKEN } {
+    pub fn init(system_timer: SystemTimer, policy: SchedulerPolicy) -> Option<Scheduler> {
+        if unsafe { SCHEDULER_TAKEN } {
             None
         } else {
             unsafe {
-                TAKEN = true;
+                SCHEDULER_TAKEN = true;
             }
-            system_timer.set_reload(0x3FFFF);
+
             let mut scheduler = Scheduler {
                 processes: [None; ALLOWED_PROCESSES],
-                policy: SchedulerPolicy::RoundRobin,
+                policy,
                 current_pid: None,
                 system_timer,
             };
+
             scheduler.create_process(scheduler_task).unwrap();
+
             Some(scheduler)
         }
     }
 
+    /// This function will start the scheduling of the created processes. First task will
+    /// be [scheduler_task] also known as pid0.
+    ///
+    /// Additionally the pointer to the scheduler will be stored in a mutable static to be
+    /// referenced in the [scheduler_task] to initiate [Policy].
     pub fn start_scheduling(&mut self) -> ! {
-        unsafe { SCHEDULER = Some(&mut *(self as *mut Scheduler)) };
+        unsafe { SCHEDULER_REF = Some(&mut *(self as *mut Scheduler)) };
         self.switch_to_pid(0).unwrap();
+        // unreachable
         loop {}
     }
 
-    pub fn create_process(&mut self, init_fn: fn() -> !) -> Result<usize, ProcessesError> {
+    /// All process will be created relative to [PROCESS_BASE] and are distant by [PROCESS_MEMORY_SIZE].
+    ///
+    /// # Arguments
+    ///
+    /// * A process that is defined as a function with no parameters that does not return.
+    ///
+    /// # Returns
+    ///
+    /// * [Ok] creation of process was successful.
+    /// * [Err] with an [SchedulerError].
+    pub fn create_process(&mut self, init_fn: fn() -> !) -> Result<usize, SchedulerError> {
         if let Some((pid, empty_slot)) = self
             .processes
             .iter_mut()
@@ -128,11 +162,11 @@ impl Scheduler {
 
             Ok(pid)
         } else {
-            Err(ProcessesError::ProcessStackFull)
+            Err(SchedulerError::ProcessStackFull)
         }
     }
 
-    /// Prepares [super::cs::ContextSwitch] and then performs the context switch by enabling PendSV.
+    /// Prepares [ContextSwitch][super::cs::ContextSwitch] and then performs the context switch by enabling PendSV.
     ///
     /// # Arguments
     ///
@@ -141,11 +175,11 @@ impl Scheduler {
     /// # Returns
     ///
     /// * [Ok] when context switch was successful.
-    /// * [ProcessesError] when context switch failed.
-    fn switch_to_pid(&mut self, pid: usize) -> Result<(), ProcessesError> {
+    /// * [SchedulerError] when context switch failed.
+    fn switch_to_pid(&mut self, pid: usize) -> Result<(), SchedulerError> {
         let next_process = match self.processes.get_mut(pid) {
             Some(process) => process,
-            None => return Err(ProcessesError::NotAvailable),
+            None => return Err(SchedulerError::NotAvailable),
         };
 
         let psp_next_addr = match next_process {
@@ -154,13 +188,13 @@ impl Scheduler {
                     next_pcb.state = ProcessState::Running;
                     ptr::addr_of_mut!(next_pcb.psp) as u32
                 }
-                ProcessState::Running => return Err(ProcessesError::AlreadyRunning),
+                ProcessState::Running => return Err(SchedulerError::AlreadyRunning),
             },
-            None => return Err(ProcessesError::NotInitialized),
+            None => return Err(SchedulerError::NotInitialized),
         };
 
         unsafe {
-            super::CONTEXT_SWITCH.psp_next_addr = psp_next_addr;
+            CONTEXT_SWITCH.set_next_addr(psp_next_addr);
         }
 
         if let Some(current_pid) = self.current_pid {
@@ -192,15 +226,18 @@ impl ProcessControlBlock {
 
 #[repr(C)]
 pub struct InitialStackFrame {
-    #[allow(dead_code)]
     load_stack: LoadStackFrame,
     auto_stack: AutoStackFrame,
 }
 
-#[repr(C, align(8))]
+/// The [LoadStackFrame] will be initially loaded when the first
+/// context switch occurs.
+///
+/// It needs to have an align_buffer to be placed correctly on top
+/// of the 8 byte aligned [AutoStackFrame].
+#[repr(C)]
 pub struct LoadStackFrame {
-    /// Here initial value for control
-    _buffer: [u32; 7],
+    _align_buffer: [u32; 7],
     r4: u32,
     r5: u32,
     r6: u32,
@@ -215,7 +252,7 @@ pub struct LoadStackFrame {
 impl LoadStackFrame {
     fn default() -> LoadStackFrame {
         LoadStackFrame {
-            _buffer: [0; 7],
+            _align_buffer: [0; 7],
             r4: 0x3,
             r5: 0,
             r6: 0,
@@ -229,6 +266,12 @@ impl LoadStackFrame {
     }
 }
 
+/// The [AutoStackFrame] will be automatically read the first time an context
+/// switch occurs at the corresponding process. It needs to be 8 byte aligned.
+/// Initially the PC will hold the reference to the function of the process task.
+///
+/// *NOTE: This will be only need to be handled once, after that the processor will
+/// automatically create an auto stack frame each time an exception occurs.*
 #[repr(C, align(8))]
 pub struct AutoStackFrame {
     r0: u32,

@@ -19,7 +19,7 @@ use dp::{
     DevicePeripherals,
 };
 use driver::leds::{CardinalPoints::*, LEDs};
-use kernel::scheduler::Scheduler;
+use kernel::scheduler::{policies::SchedulerPolicy, Scheduler};
 
 /// LEDs hook for exceptions
 static mut LEDS: Option<LEDs> = None;
@@ -27,8 +27,8 @@ static mut LEDS: Option<LEDs> = None;
 const LED_DEMO_CLOSURE: fn(led: fn(&mut LEDs)) -> ! = |led| unsafe {
     let leds = LEDS.as_mut().unwrap();
     loop {
-        led(leds);
         leds.all_off();
+        led(leds);
     }
 };
 
@@ -78,7 +78,7 @@ fn kmain() -> ! {
         LEDS = Some(leds);
     };
 
-    let mut p = Scheduler::init(system_timer).unwrap();
+    let mut p = Scheduler::init(system_timer, SchedulerPolicy::RoundRobin(Some(0xFFFF))).unwrap();
     p.create_process(user_task_led_vertical).unwrap();
     p.create_process(user_task_led_diagonally_right).unwrap();
     p.create_process(user_task_led_horizontal).unwrap();

@@ -12,8 +12,9 @@ pub unsafe extern "C" fn SysTick() {
     trigger_PendSV();
 }
 
-// Set PendSV to pending
-// Interrupt control and state register (ICSR)  0xE000ED04
+/// Set PendSV to pending.
+///
+/// Interrupt control and state register (ICSR)  0xE000ED04
 #[no_mangle]
 #[allow(non_snake_case)]
 pub fn trigger_PendSV() {
@@ -21,8 +22,12 @@ pub fn trigger_PendSV() {
     icsr.set_bit(28);
 }
 
+/// # PendSV exception
+///
+/// This exception has the lowest priority and therefore will be executed last when
+/// there are nested exceptions.
 #[no_mangle]
 pub unsafe extern "C" fn PendSV() {
-    let (psp_next_addr, psp_current_addr) = CONTEXT_SWITCH.prepare_context_switch();
+    let (psp_next_addr, psp_current_addr) = CONTEXT_SWITCH.get_addr_and_swap();
     __context_switch(psp_next_addr, psp_current_addr);
 }
