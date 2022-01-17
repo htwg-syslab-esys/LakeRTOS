@@ -2,10 +2,10 @@
 //!
 //! ## RoundRobin
 //!
-//! The figure below shows how the [RoundRobin][SchedulerPolicy::RoundRobin] policy is implemented. 
+//! The figure below shows how the [RoundRobin][SchedulerPolicy::RoundRobin] policy is implemented.
 //! In this case between each user process task the scheduler task will be called to select the next
 //! process to be scheduled.
-//! 
+//!
 //! ```text
 //!  pid
 //! curr  0      1      0      2      0      3      0
@@ -28,8 +28,8 @@
 use crate::{
     cp::stk::STK_RELOAD_MAX,
     kernel::{
+        cs::CONTEXT_SWITCH,
         scheduler::{Scheduler, ALLOWED_PROCESSES},
-        CONTEXT_SWITCH,
     },
 };
 use core::ptr;

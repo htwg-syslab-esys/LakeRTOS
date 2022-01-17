@@ -3,10 +3,17 @@
 //! This struct will be used to store from the [ProcessControlBlock][super::scheduler::ProcessControlBlock]
 //! the psp address of the current aka from and next process.
 
+/// This static mutable of [ContextSwitch] is useful because we can call this
+/// within our exceptions and therefore make use of it easier in our assembler code.
+pub(super) static mut CONTEXT_SWITCH: ContextSwitch = ContextSwitch {
+    psp_from_addr: 0,
+    psp_next_addr: 0,
+};
+
 /// Holds addresses required for context switch
 pub struct ContextSwitch {
-    pub psp_from_addr: u32,
-    pub psp_next_addr: u32,
+    psp_from_addr: u32,
+    psp_next_addr: u32,
 }
 
 impl ContextSwitch {

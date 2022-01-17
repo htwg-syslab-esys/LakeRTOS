@@ -43,7 +43,7 @@ use crate::{
 };
 use core::ptr;
 
-use super::CONTEXT_SWITCH;
+use super::cs::CONTEXT_SWITCH;
 
 /// Maximum allowed processes
 const ALLOWED_PROCESSES: usize = 5;

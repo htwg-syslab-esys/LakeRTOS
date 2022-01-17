@@ -2,7 +2,7 @@
 
 use crate::util::register::Register;
 
-use super::{__context_switch, CONTEXT_SWITCH};
+use super::{__context_switch, cs::CONTEXT_SWITCH};
 
 /// # SysTick exception
 ///
