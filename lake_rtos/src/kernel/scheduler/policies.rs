@@ -3,7 +3,7 @@
 //! ## RoundRobin
 //!
 //! The figure below shows how the [RoundRobin][SchedulerPolicy::RoundRobin] policy is implemented.
-//! In this case between each user process task the scheduler task will be called to select the next
+//! In this case, between each user process task the scheduler task will be called to select the next
 //! process to be scheduled.
 //!
 //! ```text
