@@ -30,7 +30,7 @@
 //! msp = main stack pointer
 //! ```
 //!
-//! A process has 1K memory available.
+//! A process has as much memory available, as defined in [PROCESS_MEMORY_SIZE].
 
 pub mod policies;
 
@@ -82,6 +82,11 @@ fn scheduler_task() -> ! {
     policy.schedule()
 }
 
+/// The scheduler is responsible to create processes and initiate scheduling.
+///
+/// It holds the [PCB][ProcessControlBlock] of each process, as well as the selected
+/// [SchedulerPolicy]. It needs the system timer, otherwise safe operations can not be
+/// guaranteed.
 #[derive(Debug)]
 pub struct Scheduler {
     processes: [Option<ProcessControlBlock>; ALLOWED_PROCESSES],
@@ -166,7 +171,7 @@ impl Scheduler {
         }
     }
 
-    /// Prepares [ContextSwitch][super::cs::ContextSwitch] and then performs the context switch by enabling PendSV.
+    /// Prepares [ContextSwitch][super::cs::ContextSwitch] and then executes the context switch by enabling PendSV.
     ///
     /// # Arguments
     ///
@@ -210,6 +215,10 @@ impl Scheduler {
     }
 }
 
+/// Every process has an [PCB][ProcessControlBlock].
+///
+/// It holds the saved process stack pointer (psp), as well as the program id (pid).
+/// Furthermore it saves the [ProcessState].
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProcessControlBlock {
@@ -224,14 +233,18 @@ impl ProcessControlBlock {
     }
 }
 
+/// The first context switch to a new process will point to this initial stack frame.
+///
+/// There, the load_stack will be the first loaded manually and subsequently the built-in
+/// automatic loading of the auto_stack will be done by the processor when existing an
+/// exception.
 #[repr(C)]
 pub struct InitialStackFrame {
     load_stack: LoadStackFrame,
     auto_stack: AutoStackFrame,
 }
 
-/// The [LoadStackFrame] will be initially loaded when the first
-/// context switch occurs.
+/// Will be initially loaded when the first context switch occurs.
 ///
 /// It needs to have an align_buffer to be placed correctly on top
 /// of the 8 byte aligned [AutoStackFrame].
@@ -266,11 +279,13 @@ impl LoadStackFrame {
     }
 }
 
-/// The [AutoStackFrame] will be automatically read the first time an context
-/// switch occurs at the corresponding process. It needs to be 8 byte aligned.
-/// Initially the PC will hold the reference to the function of the process task.
+/// It will be automatically read the first time a context switch occurs at the
+/// corresponding process.
 ///
-/// *NOTE: This will be only need to be handled once, after that the processor will
+/// It needs to be 8 bytes aligned. Initially, the PC will hold the reference to
+/// the function of the process task.
+///
+/// *NOTE: This will be only needed to be handled once, after that the processor will
 /// automatically create an auto stack frame each time an exception occurs.*
 #[repr(C, align(8))]
 pub struct AutoStackFrame {
