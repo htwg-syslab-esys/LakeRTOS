@@ -18,6 +18,11 @@ pub trait iostream {
     fn println(&self);
 }
 
+///
+/// Appends print methods to &str primitive. The println method 
+/// sends a newline character and a carriage return after the
+/// payload has been succesful transmitted.
+///
 impl iostream for &str {
     fn print(&self) {
         for c in self.chars() {
@@ -34,7 +39,10 @@ impl iostream for &str {
     }
 }
 
-// redundancy gets removed soon
+///
+/// Appends print methods to u32 primitive. A numerical string has to be 
+/// broken up into each digit before sending the payload byte-per-byte. 
+///
 impl iostream for u32 {
     fn print(&self) {
         let mut buffer: [u8; 32] = unsafe { core::mem::zeroed() };
@@ -116,6 +124,17 @@ impl USART1 {
     }
 }
 
+///
+/// Writes one byte into transmit register und polls interrupt flag until transmission in complete. Acts as 
+/// as "blocking send".
+///
+/// # Arguments
+///
+/// * `c` - A bytee representing the char to be sent.
+///
+/// # Returns
+/// * `Nothing`
+///
 fn transmit(c: u32) {
     unsafe {
         core::ptr::write_volatile(USART1_TDR as *mut u32, c);
