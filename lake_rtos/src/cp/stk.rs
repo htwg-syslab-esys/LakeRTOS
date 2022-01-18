@@ -70,7 +70,7 @@ impl SystemTimer {
         self
     }
 
-    /// Any write to the register will clear the field to 0 and sets the COUNTFLAG
+    /// Any write to the register will clear the field of systick value to 0 and sets the COUNTFLAG
     /// in STK_CTRL register to 0.
     pub fn clear_val(self) -> SystemTimer {
         self.p.stk_val.set_bit(0);
@@ -78,7 +78,7 @@ impl SystemTimer {
     }
 
     /// SysTick exception request enable.
-    /// Setting bit to *1* requests the SysTick Interrupt when the STK_LOAD Register
+    /// Setting bit to *1* requests the SysTick Interrupt as soon as the STK_LOAD Register
     /// reaches 0.
     pub fn tickint(self, enable: bool) -> SystemTimer {
         self.p.stk_ctrl.replace_bits(1, enable as u32, 1);
