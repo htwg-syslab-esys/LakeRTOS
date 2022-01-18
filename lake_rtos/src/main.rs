@@ -85,7 +85,6 @@ fn kmain() -> ! {
         LEDS = Some(leds);
     };
 
-    "lets go...".println();
     let mut p = Scheduler::init(system_timer).unwrap();
     p.create_process(user_task_led_vertical).unwrap();
     p.create_process(user_task_led_diagonally_right).unwrap();
