@@ -5,31 +5,42 @@
 //! Memory layout
 //!
 //! ```text
-//! |     ...      |  
-//! |  Peripheral  |
-//! |--------------| 0x4000_0000  
-//! |--------------| 0x2000 9C40 (upper limit for our discovery board version)
-//! |              | <<<<<<<<<<<<< | Process1 (psp1) | 0x2000_8000 - 0x2000_8FFF
-//! |              |               | Process2 (psp2) | 0x2000_7000 - 0x2000_7FFF
-//! |              |               | Process3 (psp3) | 0x2000_6000 - 0x2000_6FFF
-//! |     SRAM     |               | Process4 (psp4) | 0x2000_5000 - 0x2000_5FFF
-//! |              |
-//! |              |
-//! |              | <<<<<<<<<<<<< | Kernel stack (msp) |
-//! |--------------| 0x2000_0000
-//! |--------------| 0x1FFF_FFFF
-//! |     Code     |
-//! |     ...      |
-//! ```
+//!     Memory model
+//!   |     ...      |  
+//!   |  Peripheral  |
+//!   |--------------| 0x4000_0000
+//!   |     ...      |
+//!   |--------------| 0x2000 9C40 (upper limit for our discovery board version)
+//!   |              | <<<< msp <<<< | start main stack |
+//!   |              |
+//! | |              |
+//! | |              | <<<< psp <<<< | Process stack 0 (pid0) | 0x2000_6000
+//! | |     SRAM     |               | Process stack 1 (pid1) | 0x2000_5000
+//! v*|              |               | Process stack 2 (pid2) | 0x2000_4000
+//!   |              |               | Process stack 3 (pid3) | 0x2000_3000
+//!   |              |               | ...
+//!   |              |
+//!   |              | <<<<<<<<<<<<< | static variables |
+//!   |--------------| 0x2000_0000
+//!   |--------------| 0x1FFF_FFFF
+//!   |     Code     |
+//!   |     ...      |
 //!
-//! A process has 4K memory available.
+//! *full descending stack
+//!
+//! psp = process stack pointer
+//! msp = main stack pointer
+//! ```
+//! A process has as much memory available, as defined in [PROCESS_MEMORY_SIZE].
 
 use core::ptr;
 
-use super::{__context_switch, PROCESSES, PROCESS_BASE};
+use super::{__context_switch, PROCESSES};
 
 /// Maximum allowed processes
 const ALLOWED_PROCESSES: usize = 4;
+/// Starting address of processes (processes are stacked descending)
+const PROCESS_BASE: u32 = 0x2000_6000;
 /// The reserved memory for a process. This does not protect against memory overflow.
 const PROCESS_MEMORY_SIZE: u32 = 0x1000;
 
@@ -160,6 +171,10 @@ impl Processes {
     }
 }
 
+/// Every process has an [PCB][ProcessControlBlock].
+///
+/// It holds the saved process stack pointer (psp), as well as the program id (pid).
+/// Furthermore it saves the [ProcessState].
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProcessControlBlock {
@@ -174,17 +189,24 @@ impl ProcessControlBlock {
     }
 }
 
+/// The first context switch to a new process will point to this initial stack frame.
+///
+/// There, the load_stack will be the first loaded manually and subsequently the built-in
+/// automatic loading of the auto_stack will be done by the processor when existing an
+/// exception.
 #[repr(C)]
 pub struct InitialStackFrame {
-    #[allow(dead_code)]
     load_stack: LoadStackFrame,
     auto_stack: AutoStackFrame,
 }
 
-#[repr(C, align(8))]
+/// Will be initially loaded when the first context switch occurs.
+///
+/// It needs to have an align_buffer to be placed correctly on top
+/// of the 8 byte aligned [AutoStackFrame].
+#[repr(C)]
 pub struct LoadStackFrame {
-    /// Here initial value for control
-    _buffer: [u32; 7],
+    _align_buffer: [u32; 7],
     r4: u32,
     r5: u32,
     r6: u32,
@@ -199,7 +221,7 @@ pub struct LoadStackFrame {
 impl LoadStackFrame {
     fn default() -> LoadStackFrame {
         LoadStackFrame {
-            _buffer: [0; 7],
+            _align_buffer: [0; 7],
             r4: 0x3,
             r5: 0,
             r6: 0,
@@ -213,6 +235,14 @@ impl LoadStackFrame {
     }
 }
 
+/// It will be automatically read the first time a context switch occurs at the
+/// corresponding process.
+///
+/// It needs to be 8 bytes aligned. Initially, the PC will hold the reference to
+/// the function of the process task.
+///
+/// *NOTE: This will be only needed to be handled once, after that the processor will
+/// automatically create an auto stack frame each time an exception occurs.*
 #[repr(C, align(8))]
 pub struct AutoStackFrame {
     r0: u32,
