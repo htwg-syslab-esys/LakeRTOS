@@ -40,6 +40,7 @@ use crate::{
         exceptions::trigger_PendSV,
         scheduler::policies::{Policy, SchedulerPolicy},
     },
+    util::register::Register,
 };
 use core::ptr;
 
@@ -53,7 +54,7 @@ const PROCESS_BASE: u32 = 0x2000_6000;
 const PROCESS_MEMORY_SIZE: u32 = 0x1000;
 
 /// This [Option] holds a reference to the [Scheduler].
-static mut SCHEDULER_REF: Option<&mut Scheduler> = None;
+pub(super) static mut SCHEDULER_REF: Option<&mut Scheduler> = None;
 /// This allows for the singleton pattern.
 static mut SCHEDULER_TAKEN: bool = false;
 
@@ -118,6 +119,17 @@ impl Scheduler {
         }
     }
 
+    /// Disables the system times.
+    ///
+    /// Furthermore, it also clears a possible pending flag for the SysTick exception triggered
+    /// by the system timer. For this to be effective, this function needs to be called within
+    /// an exception, as for example in the supervisor call.
+    pub(super) fn disable_timed_context_switch(&mut self) {
+        self.system_timer.disable();
+        let icsr: &mut Register = unsafe { &mut *(0xE000_ED04 as *mut Register) };
+        icsr.set_bit(25);
+    }
+
     /// This function will start the scheduling of the created processes. First task will
     /// be [scheduler_task] also known as pid0.
     ///
@@ -125,7 +137,9 @@ impl Scheduler {
     /// referenced in the [scheduler_task] to initiate [Policy].
     pub fn start_scheduling(&mut self) -> ! {
         unsafe { SCHEDULER_REF = Some(&mut *(self as *mut Scheduler)) };
-        self.switch_to_pid(0).unwrap();
+        if let Ok(()) = self.prepare_switch_to_pid(0) {
+            trigger_PendSV();
+        }
         // unreachable
         loop {}
     }
@@ -171,7 +185,8 @@ impl Scheduler {
         }
     }
 
-    /// Prepares [ContextSwitch][super::cs::ContextSwitch] and then executes the context switch by enabling PendSV.
+    /// Prepares the [ContextSwitch][super::cs::ContextSwitch]. Returning [Ok] allows for enabling PendSV
+    /// to switch to the prepared process.
     ///
     /// # Arguments
     ///
@@ -179,9 +194,9 @@ impl Scheduler {
     ///
     /// # Returns
     ///
-    /// * [Ok] when context switch was successful.
-    /// * [SchedulerError] when context switch failed.
-    fn switch_to_pid(&mut self, pid: usize) -> Result<(), SchedulerError> {
+    /// * [Ok] when context switch is prepared.
+    /// * [SchedulerError] when preparing context switch failed.
+    fn prepare_switch_to_pid(&mut self, pid: usize) -> Result<(), SchedulerError> {
         let next_process = match self.processes.get_mut(pid) {
             Some(process) => process,
             None => return Err(SchedulerError::NotAvailable),
@@ -208,8 +223,6 @@ impl Scheduler {
             }
         }
         self.current_pid = Some(pid);
-
-        trigger_PendSV();
 
         Ok(())
     }

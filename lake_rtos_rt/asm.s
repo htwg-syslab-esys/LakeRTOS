@@ -2,6 +2,11 @@
 .syntax unified
 .thumb
 
+// ARM semihosting operations
+.equ SYS_WRITEC, 0x03
+.equ SYS_WRITE0, 0x04
+.equ SYS_READC,  0x07
+
 .global __breakpoint
 __breakpoint:
     bkpt
@@ -27,5 +32,35 @@ __context_switch:
     msr psp, r0
     isb
 
+    bx lr
+
+.global __syscall
+__syscall:
+    svc 0;
+    bx lr
+
+.global __sys_write0
+__sys_write0:
+    mov r1, r0
+    mov r0, SYS_WRITE0
+    bkpt 0xAB ;
+    bx lr
+
+.global __sys_writec
+__sys_writec:
+    mov r1, r0
+    mov r0, SYS_WRITEC
+    bkpt 0xAB ;
+    bx lr
+
+.global __sys_readc
+__sys_readc:
+    mov r1, #0x0
+    mov r0, SYS_READC
+    bkpt 0xAB ;
+    bx lr
+
+.global __get_r0
+__get_r0:
     bx lr
     

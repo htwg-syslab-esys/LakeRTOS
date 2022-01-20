@@ -29,14 +29,19 @@ use crate::{
     cp::stk::STK_RELOAD_MAX,
     kernel::{
         cs::CONTEXT_SWITCH,
+        exceptions::trigger_PendSV,
         scheduler::{Scheduler, ALLOWED_PROCESSES},
     },
 };
+
+#[cfg(feature = "semihosting")]
+use crate::kernel::sprint;
+
 use core::ptr;
 
 /// Minimum switch rate in clock cycle, that ensures that the scheduler does not jump
-/// back to early.
-const SWITCH_RATE_CC_MIN: u32 = 0x50;
+/// back too early. This translates to 1 ms execution time (0x1F40 * 125 ns).
+const SWITCH_RATE_CC_MIN: u32 = 0x1F40;
 
 #[derive(Debug)]
 pub enum SchedulerPolicy {
@@ -79,12 +84,17 @@ impl Policy {
                     .system_timer
                     .set_reload(reload_val)
                     .clear_val()
-                    .tickint(true)
-                    .enable();
+                    .tickint(true);
 
                 loop {
                     if let Some(pid) = cycle.next() {
-                        if let Ok(()) = self.scheduler.switch_to_pid(pid) {}
+                        if let Ok(()) = self.scheduler.prepare_switch_to_pid(pid) {
+                            #[cfg(feature = "semihosting")]
+                            sprint("context switch\n");
+                            self.scheduler.system_timer.enable();
+                            trigger_PendSV();
+                            self.scheduler.system_timer.disable().clear_val();
+                        }
                     }
                 }
             }

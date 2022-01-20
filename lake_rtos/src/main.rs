@@ -19,69 +19,98 @@ use dp::{
     DevicePeripherals,
 };
 use driver::leds::{CardinalPoints::*, LEDs};
-use kernel::scheduler::{policies::SchedulerPolicy, Scheduler};
-
-/// LEDs hook for exceptions
-static mut LEDS: Option<LEDs> = None;
-
-const LED_DEMO_CLOSURE: fn(led: fn(&mut LEDs)) -> ! = |led| unsafe {
-    let leds = LEDS.as_mut().unwrap();
-    loop {
-        leds.all_off();
-        led(leds);
-    }
+use kernel::{
+    scheduler::{policies::SchedulerPolicy::RoundRobin, Scheduler},
+    syscall,
+    SvcRequest::*,
+    SvcResult::*,
 };
 
+#[cfg(feature = "semihosting")]
+use kernel::sprint;
+
 /// pid1
-fn user_task_led_vertical() -> ! {
-    LED_DEMO_CLOSURE(|led| {
-        led.on(North).on(South);
-    })
+fn user_task_pid_1() -> ! {
+    let mut counter: u32 = 0;
+
+    loop {
+        counter += 1;
+        #[cfg(feature = "semihosting")]
+        {
+            let display = [
+                'p' as u8,
+                'i' as u8,
+                'd' as u8,
+                ' ' as u8,
+                '1' as u8,
+                ' ' as u8,
+                ((counter / 1000) % 10 + 48) as u8,
+                ((counter / 100) % 10 + 48) as u8,
+                ((counter / 10) % 10 + 48) as u8,
+                ((counter / 1) % 10 + 48) as u8,
+                '\n' as u8,
+                '\0' as u8,
+            ];
+
+            syscall(SemihostingWrite0(display.as_ptr() as *const u8));
+        }
+        syscall(Yield);
+    }
 }
 
 /// pid2
-fn user_task_led_diagonally_right() -> ! {
-    LED_DEMO_CLOSURE(|led| {
-        led.on(NorthWest).on(SouthEast);
-    })
-}
-
-/// pid3
-fn user_task_led_horizontal() -> ! {
-    LED_DEMO_CLOSURE(|led| {
-        led.on(West).on(East);
-    })
-}
-
-/// pid4
-fn user_task_led_diagonally_left() -> ! {
-    LED_DEMO_CLOSURE(|led| {
-        led.on(NorthEast).on(SouthWest);
-    })
-}
-
-/// Kernel main
-#[no_mangle]
-fn kmain() -> ! {
+fn user_task_pid_2() -> ! {
     let bus: BusInterface = DevicePeripherals::take();
 
     let mut ahb1: AHB1 = bus.ahb1();
     ahb1.rcc(|rcc: &mut RCC| rcc.iopeen());
 
     let gpioe: &mut GPIO = bus.ahb2().gpioe();
-    let leds: LEDs = LEDs::new(gpioe);
+    let mut leds: LEDs = LEDs::new(gpioe);
 
+    loop {
+        #[cfg(feature = "semihosting")]
+        {
+            let user_input = syscall(SemihostingReadC);
+            if let Char(dir) = user_input {
+                match dir.to_ascii_lowercase() as char {
+                    // Hitting enter is just another input character. Here we skip it.
+                    '\n' => continue,
+                    'n' => {
+                        sprint("pid 2 LED North on\n");
+                        leds.on(North)
+                    }
+                    'w' => {
+                        sprint("pid 2 LED West on\n");
+                        leds.on(West)
+                    }
+                    'e' => {
+                        sprint("pid 2 LED East on\n");
+                        leds.on(East)
+                    }
+                    's' => {
+                        sprint("pid 2 LED South on\n");
+                        leds.on(South)
+                    }
+                    _ => {
+                        sprint("pid 2 LED all off\n");
+                        leds.all_off()
+                    }
+                };
+            }
+        }
+        syscall(Yield);
+    }
+}
+
+/// Kernel main
+#[no_mangle]
+fn kmain() -> ! {
     let mut cp = CorePeripherals::take().unwrap();
     let system_timer = cp.take_system_timer().unwrap();
 
-    unsafe {
-        LEDS = Some(leds);
-    };
-
-    let mut p = Scheduler::init(system_timer, SchedulerPolicy::RoundRobin(Some(0xFFFF))).unwrap();
-    p.create_process(user_task_led_vertical).unwrap();
-    p.create_process(user_task_led_diagonally_right).unwrap();
-    p.create_process(user_task_led_horizontal).unwrap();
-    p.create_process(user_task_led_diagonally_left).unwrap();
+    let mut p = Scheduler::init(system_timer, RoundRobin(Some(0x1F40))).unwrap();
+    p.create_process(user_task_pid_1).unwrap();
+    p.create_process(user_task_pid_2).unwrap();
     p.start_scheduling()
 }

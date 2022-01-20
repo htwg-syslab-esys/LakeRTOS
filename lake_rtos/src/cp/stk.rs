@@ -95,4 +95,10 @@ impl SystemTimer {
         self.p.stk_ctrl.set_bit(0);
         self
     }
+
+    /// Disables the counter.
+    pub fn disable(&mut self) -> &mut SystemTimer {
+        self.p.stk_ctrl.clear_bit(0);
+        self
+    }
 }
