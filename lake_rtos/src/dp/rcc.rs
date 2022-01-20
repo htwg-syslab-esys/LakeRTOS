@@ -12,7 +12,7 @@ pub struct RCC {
     cr: Register,
     cfgr: Register,
     cir: Register,
-    apb2rstr: u32,
+    apb2rstr: Register,
     apb1rstr: Register,
     ahbenr: Register,
     apb2enr: Register,

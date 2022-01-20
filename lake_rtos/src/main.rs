@@ -35,7 +35,7 @@ fn kmain() -> ! {
 
     leds.on(South);
 
-    let cp = CorePeripherals::take().unwrap();
+    let mut cp = CorePeripherals::take().unwrap();
     cp.stk
         .set_reload(0x3FFFF)
         .clear_val()
@@ -52,8 +52,7 @@ fn kmain() -> ! {
 /// This function will be called when the SysTick exception is triggered.
 #[no_mangle]
 pub unsafe extern "C" fn SysTick() {
-    match &mut LEDS {
-        Some(leds) => leds.toggle(South),
-        None => {}
+    if let Some(leds) = &mut LEDS {
+        leds.toggle(South);
     }
 }

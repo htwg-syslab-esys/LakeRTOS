@@ -32,8 +32,10 @@
 //!
 //! [Reference Manual](https://www.st.com/resource/en/reference_manual/dm00043574-stm32f303xb-c-d-e-stm32f303x6-8-stm32f328x8-stm32f358xc-stm32f398xe-advanced-arm-based-mcus-stmicroelectronics.pdf)
 //! GPIO registers - Section 11.4
+use core::slice::Iter;
+
+use self::CardinalPoints::*;
 use crate::dp::gpio::GPIO;
-use core::ptr::{read_volatile, write_volatile};
 
 #[allow(dead_code)]
 #[derive(Clone, Copy)]
@@ -49,6 +51,15 @@ pub enum CardinalPoints {
     West,
 }
 
+impl CardinalPoints {
+    pub fn iterator() -> Iter<'static, CardinalPoints> {
+        static DIRECTIONS: [CardinalPoints; 8] = [
+            NorthWest, North, NorthEast, East, SouthEast, South, SouthWest, West,
+        ];
+        DIRECTIONS.iter()
+    }
+}
+
 /// Needs [GPIO] port E.
 ///
 /// Consists of eight LEDs in an cardinal points layout. They can be accessed with enum type [CardinalPoints].
@@ -57,6 +68,7 @@ pub struct LEDs {
     initialized: [bool; 8],
 }
 
+#[allow(dead_code)]
 impl LEDs {
     pub fn new(gpioe: &'static mut GPIO) -> LEDs {
         LEDs {
@@ -65,55 +77,41 @@ impl LEDs {
         }
     }
 
-    /// If necessary, initializes the LED.
+    /// Checks if the passed LED is initialized. If not, the
+    /// gpio initialization steps get done described in the main
+    /// documentation of this module.
     pub fn check_init(&mut self, led: CardinalPoints) {
         if !self.initialized[led as usize - 8] {
-            unsafe {
-                write_volatile(
-                    &mut self.gpio.moder as *mut u32,
-                    read_volatile(&mut self.gpio.moder) | 0b01 << (led as usize * 2),
-                );
-                write_volatile(
-                    &mut self.gpio.otyper as *mut u32,
-                    read_volatile(&mut self.gpio.otyper) & 0b1 << led as usize,
-                );
-            }
+            self.gpio.moder.replace_bits(led as u32 * 2, 0b01, 2);
+            self.gpio.otyper.clear_bit(led as u32);
             self.initialized[led as usize - 8] = true;
         }
     }
 
     /// Turns the LED on. If necessary, initializes the led.
-    pub fn on(&mut self, led: CardinalPoints) {
+    pub fn on(&mut self, led: CardinalPoints) -> &mut LEDs {
         self.check_init(led);
-        unsafe {
-            write_volatile(
-                &mut self.gpio.odr as *mut u32,
-                read_volatile(&mut self.gpio.odr) | (0b1 as u32) << led as usize,
-            );
-        }
+        self.gpio.odr.set_bit(led as u32);
+        self
     }
 
     /// Turns the LED off.
-    #[allow(dead_code)]
-    pub fn off(&mut self, led: CardinalPoints) {
-        unsafe {
-            write_volatile(
-                &mut self.gpio.odr as *mut u32,
-                read_volatile(&mut self.gpio.odr) ^ (0b1 as u32) << led as usize,
-            );
-        }
+    pub fn off(&mut self, led: CardinalPoints) -> &mut LEDs {
+        self.gpio.odr.clear_bit(led as u32);
+        self
+    }
+
+    pub fn all_off(&mut self) -> &mut LEDs {
+        CardinalPoints::iterator().for_each(|led| {
+            self.off(*led);
+        });
+        self
     }
 
     /// Toggles the led. If necessary, initializes the led.
-    pub fn toggle(&mut self, led: CardinalPoints) {
+    pub fn toggle(&mut self, led: CardinalPoints) -> &mut LEDs {
         self.check_init(led);
-        let odr = unsafe { read_volatile(&mut self.gpio.odr) };
-        let on_bit = odr & (1 << led as usize);
-        unsafe {
-            write_volatile(
-                &mut self.gpio.odr as *mut u32,
-                odr ^ (on_bit | 0b1) << led as usize,
-            );
-        }
+        self.gpio.odr.flip_bits(led as u32, 1);
+        self
     }
 }
