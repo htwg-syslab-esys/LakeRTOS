@@ -19,14 +19,12 @@ use dp::{
     DevicePeripherals,
 };
 use driver::leds::{CardinalPoints::*, LEDs};
-use kernel::processes::Processes;
+use kernel::processes::{Processes, PROCESSES};
 
 /// LEDs hook for exceptions
 static mut LEDS: Option<LEDs> = None;
 /// Boolean flag for countdown timer
 static mut COUNTDOWN_FLAG: bool = false;
-/// Static mutable as hook to a mutable reference of [Processes] (for demonstration purposes)
-static mut PROCESSES_HOOK: Option<&mut Processes> = None;
 
 const LED_DEMO_CLOSURE: fn(usize, led: fn(&mut LEDs)) -> ! =
     |pid_next: usize, led: fn(&mut LEDs)| unsafe {
@@ -36,7 +34,7 @@ const LED_DEMO_CLOSURE: fn(usize, led: fn(&mut LEDs)) -> ! =
 
                 COUNTDOWN_FLAG = false;
 
-                let p = PROCESSES_HOOK.as_mut().unwrap();
+                let p = PROCESSES.as_mut().unwrap();
                 p.switch_to_pid(pid_next).unwrap();
             }
         }
@@ -75,11 +73,7 @@ fn kmain() -> ! {
     let p = Processes::take().unwrap();
     p.create_process(user_task_led_on).unwrap();
     p.create_process(user_task_led_off).unwrap();
-
-    unsafe {
-        PROCESSES_HOOK = Some(p);
-        PROCESSES_HOOK.as_mut().unwrap().switch_to_pid(0).unwrap();
-    }
+    p.switch_to_pid(0).unwrap();
 
     loop {}
 }

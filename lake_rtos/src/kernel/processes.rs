@@ -35,7 +35,7 @@
 
 use core::ptr;
 
-use super::{__context_switch, PROCESSES};
+use super::__context_switch;
 
 /// Maximum allowed processes
 const ALLOWED_PROCESSES: usize = 4;
@@ -43,6 +43,9 @@ const ALLOWED_PROCESSES: usize = 4;
 const PROCESS_BASE: u32 = 0x2000_6000;
 /// The reserved memory for a process. This does not protect against memory overflow.
 const PROCESS_MEMORY_SIZE: u32 = 0x1000;
+
+/// This [Option] of [Processes] is designed as singleton pattern.
+pub static mut PROCESSES: Option<Processes> = None;
 
 #[derive(Debug)]
 pub enum ProcessesError {
