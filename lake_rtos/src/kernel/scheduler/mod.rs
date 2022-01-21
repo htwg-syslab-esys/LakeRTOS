@@ -154,10 +154,10 @@ impl Scheduler {
 
             *init_stack_frame = InitialStackFrame {
                 load_stack: LoadStackFrame::default(),
-                auto_stack: AutoStackFrame::default(init_fn),
+                exception_stack: ExceptionFrame::default(init_fn),
             };
 
-            let auto_stack_addr = ptr::addr_of_mut!(init_stack_frame.auto_stack.r0);
+            let auto_stack_addr = ptr::addr_of_mut!(init_stack_frame.exception_stack.r0);
 
             *empty_slot = Some(ProcessControlBlock::init(
                 pid,
@@ -241,13 +241,13 @@ impl ProcessControlBlock {
 #[repr(C)]
 pub struct InitialStackFrame {
     load_stack: LoadStackFrame,
-    auto_stack: AutoStackFrame,
+    exception_stack: ExceptionFrame,
 }
 
 /// Will be initially loaded when the first context switch occurs.
 ///
 /// It needs to have an align_buffer to be placed correctly on top
-/// of the 8 byte aligned [AutoStackFrame].
+/// of the 8 byte aligned [ExceptionFrame].
 #[repr(C)]
 pub struct LoadStackFrame {
     _align_buffer: [u32; 7],
@@ -288,7 +288,7 @@ impl LoadStackFrame {
 /// *NOTE: This will be only needed to be handled once, after that the processor will
 /// automatically create an auto stack frame each time an exception occurs.*
 #[repr(C, align(8))]
-pub struct AutoStackFrame {
+pub struct ExceptionFrame {
     r0: u32,
     r1: u32,
     r2: u32,
@@ -299,10 +299,10 @@ pub struct AutoStackFrame {
     xpsr: u32,
 }
 
-impl AutoStackFrame {
-    fn default(init_fn: fn() -> !) -> AutoStackFrame {
+impl ExceptionFrame {
+    fn default(init_fn: fn() -> !) -> ExceptionFrame {
         let init_fn = ptr::addr_of!(init_fn);
-        AutoStackFrame {
+        ExceptionFrame {
             r0: 0,
             r1: 0,
             r2: 0,
