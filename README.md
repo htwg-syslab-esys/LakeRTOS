@@ -21,4 +21,4 @@ In addition to the actual functionality, this project should also serve as a tea
 
 [Benjamin Wilhelm]: https://github.com/wolfbiker1 (Benjamin Wilhelm)
 [Lukas Kaluscha]: https://github.com/turboka11e (Lukas Kaluscha)
-[Tutorial]: https://github.com/htwg-syslab-esys/stm-os-gitbook (GitBook)
+[Tutorial]: https://app.gitbook.com/o/-M8jXJtMZDrQtS3wV0kr/s/qidxytTgteUUYfPcTiVZ/ (GitBook)
